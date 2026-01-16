@@ -1,0 +1,395 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Lab 2: Benchmarking Cosmos Reason on Jetson Thor | GTC 2026" description="Measure Blackwell GPU performance with FP4 and speculative decoding on NVIDIA Cosmos-Reason1.">
+  <!-- Hero Section -->
+  <div class="bg-slate-900 text-white border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
+      <div class="max-w-3xl">
+        <div class="flex items-center gap-4 mb-6 text-sm">
+          <a href="/gtc26" class="text-nvidia-green hover:text-white transition-colors flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            GTC 2026 Workshop
+          </a>
+          <span class="text-slate-500">•</span>
+          <span class="text-slate-400">Lab 2 of 3</span>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <span class="text-xs font-medium text-nvidia-green bg-nvidia-green/10 px-2 py-1 rounded">~20 min</span>
+          <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Hands-On</span>
+        </div>
+        
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight leading-tight">
+          Benchmarking Cosmos Reason on Jetson Thor
+        </h1>
+        
+        <p class="text-xl text-slate-300 leading-relaxed">
+          Measure the real-world performance of <strong class="text-nvidia-green">Blackwell GPU</strong> features. See the impact of <strong class="text-nvidia-green">NVFP4</strong> and <strong class="text-nvidia-green">speculative decoding</strong> on VLM inference.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="lg:grid lg:grid-cols-12 lg:gap-12">
+      <!-- Sidebar -->
+      <aside class="hidden lg:block lg:col-span-3">
+        <div class="sticky top-8">
+          <h3 class="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">On this page</h3>
+          <nav class="space-y-1">
+            <a href="#metrics" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">Key Metrics</a>
+            <a href="#cosmos-reason" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">About Cosmos-Reason1</a>
+            <a href="#baseline" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">Baseline Benchmark</a>
+            <a href="#fp4-benchmark" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">FP4 Performance</a>
+            <a href="#speculative-benchmark" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">Speculative Decoding</a>
+            <a href="#results" class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3">Compare Results</a>
+          </nav>
+          
+          <div class="mt-8 pt-8 border-t border-slate-200">
+            <a href="/gtc26/intro-genai" class="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Previous: Lab 1
+            </a>
+            <a href="/gtc26/live-vlm-webui" class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
+              Next: Lab 3 - Live VLM WebUI
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="lg:col-span-9">
+        <div class="prose prose-slate prose-lg max-w-none
+          prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900
+          prose-p:text-slate-600 prose-p:leading-relaxed
+          prose-a:text-nvidia-green prose-a:no-underline hover:prose-a:underline
+          prose-strong:text-slate-900 prose-strong:font-bold
+          prose-code:text-slate-800 prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none prose-code:font-medium
+          prose-pre:bg-slate-900 prose-pre:shadow-lg prose-pre:rounded-xl prose-pre:border prose-pre:border-slate-800
+          [&_pre_code]:bg-transparent [&_pre_code]:text-slate-200 [&_pre_code]:p-0
+          prose-img:rounded-xl prose-img:shadow-md">
+          
+          <h2 id="metrics">📊 What We're Measuring</h2>
+          
+          <p>We'll benchmark Thor's performance across three configurations to demonstrate the power of Blackwell GPU features:</p>
+          
+          <div class="grid md:grid-cols-3 gap-4 not-prose my-8">
+            <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+              <div class="text-2xl mb-3">⏱️</div>
+              <h4 class="font-bold text-slate-900 mb-2">Time to First Token</h4>
+              <p class="text-slate-600 text-sm">How fast the model starts responding. Critical for real-time robotics.</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+              <div class="text-2xl mb-3">🚀</div>
+              <h4 class="font-bold text-slate-900 mb-2">Throughput (tok/s)</h4>
+              <p class="text-slate-600 text-sm">Tokens generated per second. Measures raw generation speed.</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+              <div class="text-2xl mb-3">📉</div>
+              <h4 class="font-bold text-slate-900 mb-2">Inter-Token Latency</h4>
+              <p class="text-slate-600 text-sm">Time between tokens. Affects streaming smoothness.</p>
+            </div>
+          </div>
+          
+          <hr />
+          
+          <h2 id="cosmos-reason">🌌 NVIDIA Cosmos-Reason1: Physical AI VLM</h2>
+          
+          <p><strong>Cosmos-Reason1</strong> is NVIDIA's Vision Language Model built for Physical AI applications. It excels at spatial reasoning — understanding where objects are and how they relate.</p>
+          
+          <div class="bg-nvidia-green/5 border border-nvidia-green/20 rounded-xl p-6 my-6">
+            <h4 class="font-bold text-slate-900 mb-3">Why Cosmos-Reason1 for Physical AI</h4>
+            <div class="grid md:grid-cols-2 gap-4 text-slate-700">
+              <div>
+                <strong>Robotics:</strong> Understands object positions for manipulation tasks
+              </div>
+              <div>
+                <strong>Autonomous Vehicles:</strong> Spatial awareness for navigation
+              </div>
+              <div>
+                <strong>Industrial:</strong> Defect detection and quality inspection
+              </div>
+              <div>
+                <strong>Drones:</strong> Scene understanding for autonomous flight
+              </div>
+            </div>
+          </div>
+          
+          <hr />
+          
+          <h2 id="baseline">🔬 Benchmark 1: Baseline Performance</h2>
+          
+          <p>First, let's establish baseline performance without optimizations.</p>
+          
+          <h3>Step 1: Prepare Your Jetson Thor</h3>
+          
+          <pre><code class="language-bash"># Set to MAXN mode for maximum performance
+sudo nvpmodel -m 0
+
+# Reboot for clean state
+sudo reboot</code></pre>
+          
+          <h3>Step 2: Launch vLLM Container</h3>
+          
+          <p>Open <strong>Terminal 1</strong> (Serving):</p>
+          
+          <pre><code class="language-bash">sudo docker run --rm -it \
+  --network host \
+  --shm-size=16g \
+  --ulimit memlock=-1 \
+  --ulimit stack=67108864 \
+  --runtime=nvidia \
+  --name=vllm \
+  ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor</code></pre>
+          
+          <h3>Step 3: Serve Cosmos-Reason1</h3>
+          
+          <p>Inside the container:</p>
+          
+          <pre><code class="language-bash">vllm serve nvidia/Cosmos-Reason1-7B \
+  --port 8000 \
+  --host 0.0.0.0 \
+  --trust-remote-code \
+  --gpu-memory-utilization 0.8</code></pre>
+          
+          <p>Wait for: <code>Application startup complete.</code></p>
+          
+          <h3>Step 4: Run Benchmark</h3>
+          
+          <p>Open <strong>Terminal 2</strong> and access the container:</p>
+          
+          <pre><code class="language-bash">sudo docker exec -it vllm bash</code></pre>
+          
+          <p>Run the VLM benchmark:</p>
+          
+          <pre><code class="language-bash">vllm bench serve \
+  --dataset-name hf \
+  --dataset-path lmarena-ai/vision-arena-bench-v0.1 \
+  --hf-split train \
+  --model nvidia/Cosmos-Reason1-7B \
+  --num-prompts 30 \
+  --percentile-metrics ttft,tpot,itl,e2el \
+  --hf-output-len 128 \
+  --max-concurrency 1</code></pre>
+          
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 my-6">
+            <p class="text-amber-800 m-0"><strong>📝 Record your results!</strong> Note the Output throughput (tok/s) and Mean TTFT (ms).</p>
+          </div>
+          
+          <hr />
+          
+          <h2 id="fp4-benchmark">🔥 Benchmark 2: NVFP4 Quantization</h2>
+          
+          <p>Now let's see the Blackwell FP4 advantage. Stop the previous server (Ctrl+C) and serve the FP4 version:</p>
+          
+          <pre><code class="language-bash">vllm serve nvidia/Cosmos-Reason1-7B-NVFP4 \
+  --port 8000 \
+  --host 0.0.0.0 \
+  --trust-remote-code \
+  --gpu-memory-utilization 0.8</code></pre>
+          
+          <p>Run the same benchmark:</p>
+          
+          <pre><code class="language-bash">vllm bench serve \
+  --dataset-name hf \
+  --dataset-path lmarena-ai/vision-arena-bench-v0.1 \
+  --hf-split train \
+  --model nvidia/Cosmos-Reason1-7B-NVFP4 \
+  --num-prompts 30 \
+  --percentile-metrics ttft,tpot,itl,e2el \
+  --hf-output-len 128 \
+  --max-concurrency 1</code></pre>
+          
+          <div class="not-prose my-8">
+            <div class="bg-gradient-to-r from-nvidia-green/10 to-nvidia-green/5 rounded-xl p-6 border border-nvidia-green/20">
+              <h4 class="font-bold text-slate-900 mb-3">Expected FP4 Improvements</h4>
+              <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                  <div class="text-3xl font-bold text-nvidia-green mb-1">~40-50%</div>
+                  <div class="text-slate-600">Higher throughput (tok/s)</div>
+                </div>
+                <div>
+                  <div class="text-3xl font-bold text-nvidia-green mb-1">~50%</div>
+                  <div class="text-slate-600">Lower memory usage</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <hr />
+          
+          <h2 id="speculative-benchmark">⚡ Benchmark 3: Speculative Decoding</h2>
+          
+          <p>Finally, let's enable EAGLE-3 speculative decoding for maximum throughput:</p>
+          
+          <pre><code class="language-bash" set:html={`vllm serve nvidia/Cosmos-Reason1-7B-NVFP4 \\
+  --port 8000 \\
+  --host 0.0.0.0 \\
+  --trust-remote-code \\
+  --gpu-memory-utilization 0.8 \\
+  --speculative-config '{"model": "nvidia/Cosmos-Reason1-7B-speculator.eagle3", "num_speculative_tokens": 3, "method": "eagle3"}'`} /></pre>
+          
+          <p>Run benchmark:</p>
+          
+          <pre><code class="language-bash">vllm bench serve \
+  --dataset-name hf \
+  --dataset-path lmarena-ai/vision-arena-bench-v0.1 \
+  --hf-split train \
+  --model nvidia/Cosmos-Reason1-7B-NVFP4 \
+  --num-prompts 30 \
+  --percentile-metrics ttft,tpot,itl,e2el \
+  --hf-output-len 128 \
+  --max-concurrency 1</code></pre>
+          
+          <div class="not-prose my-8">
+            <div class="bg-gradient-to-r from-purple-500/10 to-nvidia-green/10 rounded-xl p-6 border border-purple-500/20">
+              <h4 class="font-bold text-slate-900 mb-3">Expected Speculative Decoding Boost</h4>
+              <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                  <div class="text-3xl font-bold text-purple-600 mb-1">2-3x</div>
+                  <div class="text-slate-600">Faster token generation</div>
+                </div>
+                <div>
+                  <div class="text-3xl font-bold text-nvidia-green mb-1">0%</div>
+                  <div class="text-slate-600">Quality loss</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <hr />
+          
+          <h2 id="results">📈 Compare Your Results</h2>
+          
+          <p>Fill in your benchmark results:</p>
+          
+          <div class="not-prose my-8">
+            <div class="bg-slate-900 rounded-xl overflow-hidden">
+              <table class="w-full text-white">
+                <thead class="bg-slate-800">
+                  <tr>
+                    <th class="px-6 py-4 text-left font-semibold">Configuration</th>
+                    <th class="px-6 py-4 text-center font-semibold">Throughput (tok/s)</th>
+                    <th class="px-6 py-4 text-center font-semibold">TTFT (ms)</th>
+                    <th class="px-6 py-4 text-center font-semibold">Speedup</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                  <tr>
+                    <td class="px-6 py-4 text-slate-300">Baseline (FP16)</td>
+                    <td class="px-6 py-4 text-center text-slate-400">___</td>
+                    <td class="px-6 py-4 text-center text-slate-400">___</td>
+                    <td class="px-6 py-4 text-center text-slate-400">1.0x</td>
+                  </tr>
+                  <tr class="bg-nvidia-green/10">
+                    <td class="px-6 py-4 text-nvidia-green font-medium">NVFP4 Quantization</td>
+                    <td class="px-6 py-4 text-center text-slate-300">___</td>
+                    <td class="px-6 py-4 text-center text-slate-300">___</td>
+                    <td class="px-6 py-4 text-center text-nvidia-green font-bold">~1.5x</td>
+                  </tr>
+                  <tr class="bg-purple-500/10">
+                    <td class="px-6 py-4 text-purple-400 font-medium">FP4 + EAGLE-3</td>
+                    <td class="px-6 py-4 text-center text-slate-300">___</td>
+                    <td class="px-6 py-4 text-center text-slate-300">___</td>
+                    <td class="px-6 py-4 text-center text-purple-400 font-bold">~2-3x</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <h3>Why These Optimizations Matter for Physical AI</h3>
+          
+          <div class="not-prose my-8 space-y-4">
+            <div class="flex items-start gap-4 bg-slate-50 rounded-xl p-5 border border-slate-200">
+              <div class="text-2xl">🤖</div>
+              <div>
+                <h4 class="font-bold text-slate-900 mb-1">Robotics</h4>
+                <p class="text-slate-600 text-sm m-0">Faster inference = faster reaction times. A robot that can process visual input 2x faster can operate at higher speeds safely.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 bg-slate-50 rounded-xl p-5 border border-slate-200">
+              <div class="text-2xl">🚗</div>
+              <div>
+                <h4 class="font-bold text-slate-900 mb-1">Autonomous Vehicles</h4>
+                <p class="text-slate-600 text-sm m-0">Lower TTFT means quicker decisions. At 60mph, reducing TTFT by 100ms means acting 9 feet sooner.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4 bg-slate-50 rounded-xl p-5 border border-slate-200">
+              <div class="text-2xl">🔋</div>
+              <div>
+                <h4 class="font-bold text-slate-900 mb-1">Power Efficiency</h4>
+                <p class="text-slate-600 text-sm m-0">FP4 reduces memory bandwidth and compute. Same task, less power — critical for battery-powered edge devices.</p>
+              </div>
+            </div>
+          </div>
+          
+          <hr />
+          
+          <h2 id="summary">🎉 Key Takeaways</h2>
+          
+          <div class="not-prose my-8">
+            <div class="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-8 text-white">
+              <h3 class="text-xl font-bold mb-6">Blackwell GPU Features on Jetson Thor</h3>
+              <div class="space-y-4">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 bg-nvidia-green rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span class="text-nvidia-black font-bold">1</span>
+                  </div>
+                  <div>
+                    <div class="font-semibold">NVFP4 delivers ~1.5x throughput with 50% memory savings</div>
+                    <div class="text-slate-400 text-sm">Native Blackwell hardware acceleration</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 bg-nvidia-green rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span class="text-nvidia-black font-bold">2</span>
+                  </div>
+                  <div>
+                    <div class="font-semibold">EAGLE-3 speculative decoding adds another 1.5-2x boost</div>
+                    <div class="text-slate-400 text-sm">Zero quality loss — draft + verify in parallel</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 bg-nvidia-green rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span class="text-nvidia-black font-bold">3</span>
+                  </div>
+                  <div>
+                    <div class="font-semibold">Combined: 2-3x faster than baseline for Physical AI</div>
+                    <div class="text-slate-400 text-sm">The Thor advantage for real-world robotics</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        
+        <!-- Navigation -->
+        <div class="mt-16 pt-8 border-t border-slate-200">
+          <div class="flex justify-between items-center">
+            <a href="/gtc26/intro-genai" class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Lab 1: Intro to GenAI
+            </a>
+            <a href="/gtc26/live-vlm-webui" class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
+              Next: Lab 3 - Live VLM WebUI
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px;
+  }
+</style>
