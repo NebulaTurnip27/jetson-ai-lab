@@ -152,4 +152,53 @@ const { Content, headings } = await tutorial.render();
 		scroll-behavior: smooth;
 		scroll-padding-top: 100px;
 	}
+
+	:global(.device-tabs) {
+		margin: 1.5rem 0;
+	}
+	:global(.device-tab-bar) {
+		display: flex;
+		gap: 2rem;
+		border-bottom: 1px solid #e5e7eb;
+		margin-bottom: 1.5rem;
+	}
+	:global(.device-tab) {
+		padding-bottom: 1rem;
+		font-size: 1.125rem;
+		font-weight: 500;
+		cursor: pointer;
+		border: none;
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: #6b7280;
+		transition: all 0.2s;
+	}
+	:global(.device-tab.active) {
+		color: #76b900;
+		border-bottom-color: #76b900;
+	}
+	:global(.device-tab:not(.active):hover) {
+		color: #1a1a1a;
+		border-bottom-color: #d1d5db;
+	}
 </style>
+
+<script>
+	document.querySelectorAll('.device-tabs').forEach(group => {
+		const buttons = group.querySelectorAll('.device-tab');
+		const panels = group.querySelectorAll('.device-panel');
+		buttons.forEach(btn => {
+			btn.addEventListener('click', () => {
+				const target = btn.getAttribute('data-target');
+				buttons.forEach(b => b.classList.toggle('active', b.getAttribute('data-target') === target));
+				panels.forEach(p => {
+					if (p.getAttribute('data-panel') === target) {
+						p.style.display = '';
+					} else {
+						p.style.display = 'none';
+					}
+				});
+			});
+		});
+	});
+</script>
