@@ -40,7 +40,7 @@ Before setting up OpenClaw, we need to host a model locally. For this tutorial w
 
 Any model should work here as long as it's capable of **tool calling**. Tool calling is very important for OpenClaw. It's how the agent takes actions on your behalf.
 
-> **Tip:** In our testing, we found **Mixture of Experts (MoE)** models work exceptionally well with OpenClaw, models like **Nemotron 3 Nano 30B-A3B**, **Grace 3.5 35B-A3B**, and **GLM 4.7 Flash**. That said, any model that supports tool calling should work. Just make sure you serve it correctly with vLLM so it can handle tool use without messing up the output format.
+> **Tip:** In our testing, we found **Mixture of Experts (MoE)** models work exceptionally well with OpenClaw, models like **Nemotron 3 Nano 30B-A3B**, **Qwen 3.5 35B-A3B**, and **GLM 4.7 Flash**. That said, any model that supports tool calling should work. Just make sure you serve it correctly with vLLM so it can handle tool use without messing up the output format.
 
 ### Export your Hugging Face token
 
@@ -255,7 +255,7 @@ Here's an example of what it looks like:
 
 That's it. You now have a **fully local AI agent** running on your Jetson, accessible through WhatsApp, with zero cloud dependencies. Pretty cool, right?
 
-The sky is the limit from here. You can ask it to search things for you, have it watch if a price drops and message you when it happens, or automate parts of your daily workflow. Some people have even jokingly had OpenClaw join conversations to talk as them. Really, the sky is the limit.
+From here, the sky is the limit. Once you start adding skills and connecting services, you can have it search things for you, monitor prices and notify you when they drop, or automate parts of your daily workflow. Some people have even jokingly had OpenClaw join conversations to talk as them. Really, the more tools you give it, the more it can do for you.
 
 ---
 
