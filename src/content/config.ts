@@ -77,4 +77,16 @@ const projects = defineCollection({
   }),
 });
 
-export const collections = { tutorials, models, projects };
+const gtc26 = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    labNumber: z.number().optional(), // omit for setup page
+    duration: z.string(),
+    type: z.string().optional(),
+    order: z.number(),
+  }),
+});
+
+export const collections = { tutorials, models, projects, gtc26 };

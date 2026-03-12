@@ -810,6 +810,69 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       })();
     </script>
 
+    <!-- Code block copy-to-clipboard (only for .prose pre; skips blocks that already have a copy button) -->
+    <script is:inline>
+      document.addEventListener('DOMContentLoaded', function() {
+        var clipboardSvg = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>';
+        var checkSvg = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        document.querySelectorAll('.prose pre').forEach(function(pre) {
+          if (pre.closest('.code-block-wrapper')) return;
+          var parent = pre.parentElement;
+          if (parent && parent.querySelector('.copy-btn')) return;
+          var code = pre.querySelector('code');
+          if (code && (code.className && code.className.includes && code.className.includes('no-copy'))) return;
+          if (pre.getAttribute('data-no-copy') !== null) return;
+          if (pre.closest('[data-no-copy]') !== null) return;
+          var prev = pre.previousSibling;
+          while (prev) {
+            if (prev.nodeType === 8 && prev.textContent && prev.textContent.indexOf('no-copy') !== -1) return;
+            if (prev.nodeType === 1) break;
+            prev = prev.previousSibling;
+          }
+          var wrapper = document.createElement('div');
+          wrapper.className = 'code-block-wrapper';
+          pre.parentNode.insertBefore(wrapper, pre);
+          wrapper.appendChild(pre);
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'code-copy-btn';
+          btn.setAttribute('aria-label', 'Copy to clipboard');
+          btn.innerHTML = clipboardSvg;
+          btn.addEventListener('click', function() {
+            var code = pre.querySelector('code');
+            var text = (code ? code.textContent : pre.textContent) || '';
+            navigator.clipboard.writeText(text).then(function() {
+              btn.innerHTML = checkSvg;
+              btn.classList.add('code-copy-done');
+              setTimeout(function() {
+                btn.innerHTML = clipboardSvg;
+                btn.classList.remove('code-copy-done');
+              }, 2000);
+            });
+          });
+          wrapper.insertBefore(btn, pre);
+        });
+      });
+    </script>
+    <style is:global>
+      .code-block-wrapper { position: relative; }
+      .code-copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.375rem;
+        color: #e2e8f0;
+        background: rgba(55, 65, 81, 0.5);
+        border: 1px solid rgba(75, 85, 99, 1);
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .code-copy-btn:hover { background: rgba(75, 85, 99, 0.8); border-color: rgba(107, 114, 128, 1); }
+      .code-copy-btn.code-copy-done { border-color: #76b900; }
+      .prose pre { padding-top: 2.25rem; }
+    </style>
+
     <!-- 6sense Tracking -->
     <script is:inline>
       window._6si = window._6si || [];
