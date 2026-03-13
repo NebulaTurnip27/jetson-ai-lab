@@ -1,13 +1,13 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import Layout from '../../../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
-import Admonition from '../../components/Admonition.astro';
-import Info from '../../components/admonition/Info.astro';
-import Note from '../../components/admonition/Note.astro';
-import Warning from '../../components/admonition/Warning.astro';
-import Tip from '../../components/admonition/Tip.astro';
-import Danger from '../../components/admonition/Danger.astro';
-import NoCopy from '../../components/NoCopy.astro';
+import Admonition from '../../../components/Admonition.astro';
+import Info from '../../../components/admonition/Info.astro';
+import Note from '../../../components/admonition/Note.astro';
+import Warning from '../../../components/admonition/Warning.astro';
+import Tip from '../../../components/admonition/Tip.astro';
+import Danger from '../../../components/admonition/Danger.astro';
+import NoCopy from '../../../components/NoCopy.astro';
 
 export async function getStaticPaths() {
   const labs = await getCollection('gtc26');
@@ -31,7 +31,7 @@ const nextLab = currentIndex >= 0 && currentIndex < allLabs.length - 1 ? allLabs
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
       <div class="max-w-3xl">
         <div class="flex items-center gap-4 mb-6 text-sm">
-          <a href="/gtc26" class="text-nvidia-green hover:text-white transition-colors flex items-center gap-1">
+          <a href="/tutorials/gtc26" class="text-nvidia-green hover:text-white transition-colors flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             GTC 2026 Workshop
           </a>
@@ -75,18 +75,18 @@ const nextLab = currentIndex >= 0 && currentIndex < allLabs.length - 1 ? allLabs
 
           <div class="mt-8 pt-8 border-t border-slate-200">
             {prevLab && (
-              <a href={`/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-2">
+              <a href={`/tutorials/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 Previous: {prevLab.data.labNumber != null ? `Chapter ${prevLab.data.labNumber}` : 'Setup'}
               </a>
             )}
             {nextLab ? (
-              <a href={`/gtc26/${nextLab.slug}`} class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
+              <a href={`/tutorials/gtc26/${nextLab.slug}`} class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
                 Next: {nextLab.data.labNumber != null ? `Chapter ${nextLab.data.labNumber}` : 'Setup'}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </a>
             ) : (
-              <a href="/gtc26" class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
+              <a href="/tutorials/gtc26" class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
                 Back to Workshop Home
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </a>
@@ -115,24 +115,24 @@ const nextLab = currentIndex >= 0 && currentIndex < allLabs.length - 1 ? allLabs
         <div class="mt-16 pt-8 border-t border-slate-200">
           <div class="flex justify-between items-center">
             {prevLab ? (
-              <a href={`/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
+              <a href={`/tutorials/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 {prevLab.data.labNumber != null ? `Chapter ${prevLab.data.labNumber}` : 'Setup'}
               </a>
             ) : (
-              <a href="/gtc26" class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
+              <a href="/tutorials/gtc26" class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 Back to Workshop
               </a>
             )}
             {nextLab ? (
-              <a href={`/gtc26/${nextLab.slug}`} class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
+              <a href={`/tutorials/gtc26/${nextLab.slug}`} class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
                 Next: {nextLab.data.labNumber != null ? `Chapter ${nextLab.data.labNumber}` : 'Setup'}
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </a>
             ) : (
               <div class="flex gap-4">
-                <a href="/gtc26" class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
+                <a href="/tutorials/gtc26" class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
                   Back to Workshop Home
                 </a>
                 <a href="/tutorials" class="flex items-center gap-2 bg-slate-100 text-slate-800 px-6 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors">

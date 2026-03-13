@@ -13,22 +13,28 @@ In this chapter, you'll learn about AI microservices architecture and how to dep
   All commands in this lab should be run in your **Jetson terminal** (SSH session), not on your client PC.
 </Note>
 
----
-
 ## What are AI Microservices?
 
 AI microservices package AI models as **standalone services** with standardized APIs. Instead of embedding models directly into applications, you deploy them as independent services that applications can call.
 
 ### Why Microservices for Edge AI?
 
-| Traditional Approach | Microservices Approach |
-|---------------------|------------------------|
-| Model embedded in app | Model runs as separate service |
-| Rebuild app to update model | Update model independently |
-| One app = one model | Many apps share one model |
-| Custom API per model | Standardized API (OpenAI-compatible) |
-
----
+<div style="overflow-x: auto; margin: 1.5rem 0;">
+<table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+<thead>
+<tr style="background: #e2e8f0; color: #1e293b;">
+<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Traditional Approach</th>
+<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Microservices Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Model embedded in app</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Model runs as separate service</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Rebuild app to update model</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Update model independently</td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">One app = one model</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Many apps share one model</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 12px 16px;">Custom API per model</td><td style="padding: 12px 16px;">Standardized API (OpenAI-compatible)</td></tr>
+</tbody>
+</table>
+</div>
 
 ## Ollama as an AI Microservice
 
@@ -41,8 +47,6 @@ AI microservices package AI models as **standalone services** with standardized 
 - **Model management**: Easy to pull, list, and switch models
 - **Low overhead**: Lightweight server optimized for edge devices
 
----
-
 ## Step 1: Verify Ollama is Running
 
 Ollama is pre-installed on your Jetson Thor. Let's verify it's working.
@@ -51,13 +55,28 @@ Ollama is pre-installed on your Jetson Thor. Let's verify it's working.
 ollama --version
 ```
 
+<details class="nv-details">
+<summary>💡 If Ollama is not installed</summary>
+<div class="nv-details-content">
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://ollama.com/install.ps1 | iex
+```
+
+</div>
+</details>
+
 ### List Available Models
 
 ```bash
 ollama list
 ```
-
----
 
 ## Step 2: Run a Model Interactively
 
@@ -70,12 +89,10 @@ ollama run nemotron-3-nano:latest
 Try a prompt:
 
 ```
->>> What sensors does a robot need for navigation?
+>>> Explain Physical AI in one sentence.
 ```
 
 Press `Ctrl+D` or type `/bye` to exit.
-
----
 
 ## Step 3: Test the API
 
@@ -87,7 +104,7 @@ Ollama runs an OpenAI-compatible API server on port **11434**.
 curl http://localhost:11434/v1/models
 ```
 
-### Chat Completion Request (with Streaming)
+### Chat Completion Request
 
 ```bash
 curl -X POST http://localhost:11434/v1/chat/completions \
@@ -97,18 +114,15 @@ curl -X POST http://localhost:11434/v1/chat/completions \
     "messages": [
       {"role": "user", "content": "Explain Physical AI in one sentence."}
     ],
-    "stream": true,
-    "max_tokens": 256
+    "max_tokens": 100
   }'
 ```
 
-You'll see tokens appear one by one — essential for responsive user interfaces and real-time feedback.
+You'll receive a JSON response with the model's completion.
 
 <Tip title="💡 OpenAI-Compatible">
   This is the same API format used by OpenAI's GPT models. Any application built for OpenAI can work with your local Ollama server!
 </Tip>
-
----
 
 ## Architecture Overview
 
@@ -141,11 +155,57 @@ flowchart BT
 
 Multiple applications can share the same inference service, reducing resource usage and simplifying deployment.
 
----
+## Step 4: Open WebUI — Chat Interface
 
-## Before Moving to Lab 2
+Now let's connect a web-based chat interface to your Ollama microservice. This demonstrates how any application can use the OpenAI-compatible API.
 
-Before starting the next lab (which uses vLLM), stop Ollama to free up GPU memory:
+### Launch Open WebUI
+
+```bash
+docker run -d --network=host \
+    -v ${HOME}/open-webui:/app/backend/data \
+    -e OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+    --name open-webui \
+    ghcr.io/open-webui/open-webui:main
+```
+
+### Access the Interface
+
+Open a browser and navigate to:
+
+```
+http://<JETSON_IP>:8080
+```
+
+### Quick Setup
+
+1. Click **"Get started"** on the welcome screen
+2. Create an account (e.g., `jetson@jetson.com` / `jetson`)
+3. Select **nemotron-3-nano:latest** from the model dropdown
+4. Start chatting with your local model!
+
+<img src="/images/gtc26/open-webui.png" alt="Open WebUI Chat Interface" style="max-width: 100%; border-radius: 8px; margin: 16px 0;" />
+
+<Note title="🔒 Privacy">
+  All account information stays local — nothing is verified or stored externally. Your data never leaves your Jetson.
+</Note>
+
+<Tip title="💡 Why Open WebUI?">
+  This shows the power of microservices: Ollama runs the model, Open WebUI provides the interface, and they communicate via the standard OpenAI API. You can swap either component independently.
+</Tip>
+
+### Stop Open WebUI (Optional)
+
+When done, you can stop the container:
+
+```bash
+docker stop open-webui
+docker rm open-webui
+```
+
+## Before Moving to Chapter 2
+
+Before starting the next chapter (which uses vLLM), stop Ollama to free up GPU memory:
 
 ```bash
 sudo systemctl stop ollama
