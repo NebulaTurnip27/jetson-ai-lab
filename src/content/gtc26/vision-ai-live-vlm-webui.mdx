@@ -1,5 +1,5 @@
 ---
-title: Discover the Capability of Vision AI — Live VLM WebUI
+title: Understanding VLMs
 description: Explore real-time vision AI with the Live VLM WebUI on Jetson.
 labNumber: 2
 duration: "~20 min"
@@ -7,7 +7,177 @@ type: Hands-On
 order: 2
 ---
 
-## Vision Language Model (VLM)
+In this chapter, you'll explore Vision Language Models (VLMs) on Jetson Thor — from understanding what they are, to running them with vLLM, and finally experiencing real-time video analysis with Live VLM WebUI.
 
+<Note title="📍 Run on Jetson">
+  All commands in this lab should be run in your **Jetson terminal** (SSH session), not on your client PC.
+</Note>
 
-## Live VLM WebUI
+<Note title="⚠️ Free GPU Memory First">
+  Before starting, make sure Ollama is stopped to free GPU VRAM:
+  ```bash
+  sudo systemctl stop ollama
+  nvidia-smi  # Verify no Ollama processes
+  ```
+</Note>
+
+---
+
+## What is a Vision Language Model (VLM)?
+
+A **Vision Language Model (VLM)** combines computer vision with natural language processing. Unlike traditional LLMs that only process text, VLMs can:
+
+- **See**: Process images and video frames as input
+- **Understand**: Interpret visual content in context
+- **Respond**: Generate natural language descriptions, answers, or actions
+
+### Why VLMs and Not CNN-Based Models for Physical AI?
+
+Traditional CNN-based models **detect** — they output bounding boxes or class labels. A CNN-based system knows *"there's a cup"* but not *"the cup is too close to the edge and might fall."*
+
+**VLMs think.** They reason about context, spatial relationships, and consequences:
+
+| CNN-Based Models | Vision Language Models |
+|------------------|------------------------|
+| "Detected: person, chair" | "A person is about to sit on an unstable chair" |
+| One model = one task | One model = unlimited tasks |
+| Retrain for new scenarios | Just change the prompt |
+| Fixed vocabulary | Open-ended responses |
+
+With VLMs, a single model can:
+- Detect objects **and** explain their relationships
+- Identify hazards **and** suggest actions
+- Answer questions you didn't anticipate at training time
+
+**And now, this runs at the edge.** Jetson makes real-time VLM inference possible on-device with no cloud latency, no data leaving your device.
+
+---
+
+## Run VLM with vLLM (Cosmos-Reason2)
+
+[vLLM](https://docs.vllm.ai/) is a high-performance inference engine optimized for production deployments. Let's run **Cosmos-Reason2**, NVIDIA's Physical AI VLM designed for spatial reasoning.
+
+### Why Cosmos-Reason2?
+
+**Cosmos-Reason2** excels at understanding the physical world:
+
+- Spatial relationships between objects
+- Physical action reasoning
+- Real-world scene understanding
+- Video understanding with multi-frame support
+
+### Start vLLM Server with Cosmos-Reason2
+
+```bash
+vllm serve ~/models/cosmos-reason2-8b \
+    --served-model-name nvidia/cosmos-reason2-8b-fp8 \
+    --max-model-len 8192 \
+    --gpu-memory-utilization 0.7 \
+    --reasoning-parser qwen3 \
+    --media-io-kwargs '{"video": {"num_frames": -1}}' \
+    --enable-prefix-caching \
+    --port 8000
+```
+
+<Note title="📦 Pre-downloaded Model">
+  The Cosmos-Reason2 model is already downloaded at `~/models/cosmos-reason2-8b` on your Jetson Thor. Hugging Face models are cached in `~/.cache/huggingface`.
+</Note>
+
+Wait for the server to start. You'll see output like:
+
+```
+INFO:     Started server process
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+### Test the API
+
+In a **new terminal** (keep vLLM running), send a test request:
+
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nvidia/cosmos-reason2-8b-fp8",
+    "messages": [{
+      "role": "user",
+      "content": "What capabilities do you have for understanding images and video?"
+    }],
+    "max_tokens": 256
+  }'
+```
+
+<Tip title="💡 OpenAI-Compatible API">
+  vLLM provides an OpenAI-compatible API, making it easy to integrate with existing tools and applications.
+</Tip>
+
+### From Text to Continuous Video
+
+We just verified the server is running. But Physical AI doesn't work with text alone — **it requires continuous visual understanding**.
+
+Think about it:
+- Smart cameras need to monitor scenes that change every second
+- Industrial systems must track objects as they move
+- Edge AI applications process 30+ frames per second
+
+How do we feed continuous video to a VLM and get real-time responses?
+
+---
+
+## Live VLM WebUI — See the World in Real-Time
+
+**Live VLM WebUI** solves this. It uses WebRTC to stream your camera feed directly to the VLM, analyzing frames continuously and responding in real-time.
+
+![Live VLM WebUI Interface](https://github.com/NVIDIA-AI-IOT/live-vlm-webui/raw/main/docs/images/chrome_app-running_light-theme.jpg)
+
+### Start Live VLM WebUI
+
+Keep vLLM running in your first terminal. In a **new terminal**, start Live VLM WebUI:
+
+```bash
+cd ~/live-vlm-webui
+./scripts/start_container.sh
+```
+
+<Note title="📦 Pre-installed">
+  The Live VLM WebUI repository is already cloned on your Jetson Thor.
+</Note>
+
+### Access the Interface
+
+On your **client PC browser**, navigate to:
+
+```
+https://<JETSON_IP>:8090
+```
+
+Replace `<JETSON_IP>` with your Jetson's IP address.
+
+<Warning title="🔒 SSL Certificate">
+  You'll see a security warning. Click **Advanced** → **Proceed to site** to continue.
+</Warning>
+
+### Configure Live VLM WebUI
+
+1. **Allow camera access** when your browser prompts
+2. Set **API Endpoint**: `http://localhost:8000/v1`
+3. Select **Model**: `nvidia/cosmos-reason2-8b-fp8`
+4. Click **"Start Camera and Start VLM Analysis"**
+
+### Real-Time Vision AI in Action!
+
+Your webcam feed is now being analyzed by Cosmos-Reason2 in real-time. Try different prompts and see how the VLM responds:
+
+| Prompt Type | Example |
+|-------------|---------|
+| **Scene Description** | "Describe what you see in one sentence" |
+| **Object Detection** | "List all objects, separated by commas" |
+| **Activity Recognition** | "What is the person doing?" |
+| **Spatial Reasoning** | "Where is the red object relative to the blue one?" |
+| **Safety Monitoring** | "Any hazards? Answer ALERT or SAFE" |
+
+**Ideas to try:**
+- Point the camera at your GTC badge and ask it to read the text
+- Hold up different objects and ask about their spatial relationships
+- Ask safety-related questions about the scene
+

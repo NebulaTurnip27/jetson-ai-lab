@@ -79,9 +79,7 @@ import Layout from '../../layouts/Layout.astro';
               </div>
             </div>
             
-            <p class="text-slate-300 mb-6 leading-relaxed">
-              The most powerful Jetson ever built. 2560-core Blackwell GPU architecture with 128GB unified memory — designed for the most demanding generative AI and robotics applications.
-            </p>
+            
             
             <ul class="space-y-3 text-slate-400">
               <li class="flex items-center gap-3">
@@ -122,9 +120,7 @@ import Layout from '../../layouts/Layout.astro';
               </div>
             </div>
             
-            <p class="text-slate-300 mb-6 leading-relaxed">
-              The world's most powerful AI computer for energy-efficient autonomous machines. 2048-core Ampere GPU with up to 64GB unified memory for edge AI deployment.
-            </p>
+            
             
             <ul class="space-y-3 text-slate-400">
               <li class="flex items-center gap-3">
@@ -152,7 +148,7 @@ import Layout from '../../layouts/Layout.astro';
     </div>
   </section>
 
-  <!-- Workshop Tutorials -->
+  <!-- Workshop Contents -->
   <section id="workshop-labs" class="py-20 bg-slate-900 scroll-mt-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
@@ -178,7 +174,7 @@ import Layout from '../../layouts/Layout.astro';
                 <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Required</span>
               </div>
               <h3 class="text-xl font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">
-                Setup
+                Setup Jetson
               </h3>
               <p class="text-slate-400 text-sm">
                 Find your device IP address and SSH into your Jetson Thor. Quick 5-minute setup.
@@ -206,7 +202,7 @@ import Layout from '../../layouts/Layout.astro';
                 <span class="text-xs font-medium text-purple-400 bg-purple-500/10 px-2 py-1 rounded">Hands-On</span>
               </div>
               <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Introduction to AI Microservice on Jetson
+                Understanding LLMs and AI Microservices
               </h3>
               <p class="text-slate-400">
                 Learn how to run and integrate AI microservices on NVIDIA Jetson for edge deployment.
@@ -234,7 +230,7 @@ import Layout from '../../layouts/Layout.astro';
                 <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Hands-On</span>
               </div>
               <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Discover the Capability of Vision AI: Live VLM WebUI
+                Understanding VLMs
               </h3>
               <p class="text-slate-400">
                 Explore real-time vision AI with the Live VLM WebUI on Jetson.
@@ -249,7 +245,7 @@ import Layout from '../../layouts/Layout.astro';
         </a>
 
         <!-- 3. Explore speech AI in voice pipeline: Multi-modal AI Studio -->
-        <a href="/gtc26/speech-ai-multi-modal-ai-studio" class="group block bg-gradient-to-r from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700 hover:border-nvidia-green/50 transition-all duration-300">
+        <a href="/gtc26/conversation-ai-multi-modal-ai-studio" class="group block bg-gradient-to-r from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700 hover:border-nvidia-green/50 transition-all duration-300">
           <div class="flex flex-col md:flex-row md:items-center gap-6">
             <div class="flex-shrink-0">
               <div class="w-16 h-16 bg-nvidia-green/10 rounded-xl flex items-center justify-center text-3xl font-bold text-nvidia-green group-hover:bg-nvidia-green/20 transition-colors">
@@ -262,7 +258,7 @@ import Layout from '../../layouts/Layout.astro';
                 <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Hands-On</span>
               </div>
               <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Explore Speech AI in the Voice Pipeline: Multi-modal AI Studio
+                Voice + Vision with Multimodal AI Studio
               </h3>
               <p class="text-slate-400">
                 Build and explore speech AI in voice pipelines with Multi-modal AI Studio on Jetson.
@@ -276,143 +272,6 @@ import Layout from '../../layouts/Layout.astro';
           </div>
         </a>
 
-        <hr class="my-12 border-slate-700" />
-
-        <!-- Lab 1 (original) -->
-        <a href="/gtc26/intro-genai" class="group block bg-gradient-to-r from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700 hover:border-nvidia-green/50 transition-all duration-300">
-          <div class="flex flex-col md:flex-row md:items-center gap-6">
-            <div class="flex-shrink-0">
-              <div class="w-16 h-16 bg-nvidia-green/10 rounded-xl flex items-center justify-center text-3xl font-bold text-nvidia-green group-hover:bg-nvidia-green/20 transition-colors">
-                1
-              </div>
-            </div>
-            <div class="flex-1">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-xs font-medium text-nvidia-green bg-nvidia-green/10 px-2 py-1 rounded">~20 min</span>
-                <span class="text-xs font-medium text-purple-400 bg-purple-500/10 px-2 py-1 rounded">Hands-On</span>
-              </div>
-              <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Introduction to GenAI on Jetson Thor
-              </h3>
-              <p class="text-slate-400">
-                Experience Blackwell GPU performance with <strong class="text-slate-300">NVFP4 quantization</strong> and <strong class="text-slate-300">EAGLE-3 speculative decoding</strong>. Run LLMs and VLMs on Thor with vLLM.
-              </p>
-            </div>
-            <div class="flex-shrink-0">
-              <svg class="w-8 h-8 text-slate-600 group-hover:text-nvidia-green group-hover:translate-x-2 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-              </svg>
-            </div>
-          </div>
-        </a>
-        
-        <!-- Lab 2 (original) -->
-        <a href="/gtc26/benchmarking" class="group block bg-gradient-to-r from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700 hover:border-nvidia-green/50 transition-all duration-300">
-          <div class="flex flex-col md:flex-row md:items-center gap-6">
-            <div class="flex-shrink-0">
-              <div class="w-16 h-16 bg-nvidia-green/10 rounded-xl flex items-center justify-center text-3xl font-bold text-nvidia-green group-hover:bg-nvidia-green/20 transition-colors">
-                2
-              </div>
-            </div>
-            <div class="flex-1">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-xs font-medium text-nvidia-green bg-nvidia-green/10 px-2 py-1 rounded">~20 min</span>
-                <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Hands-On</span>
-              </div>
-              <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Benchmarking Cosmos Reason on Jetson Thor
-              </h3>
-              <p class="text-slate-400">
-                Measure the <strong class="text-slate-300">FP4 performance gains</strong> and <strong class="text-slate-300">speculative decoding speedups</strong> on NVIDIA's Physical AI VLM. See Blackwell in action.
-              </p>
-            </div>
-            <div class="flex-shrink-0">
-              <svg class="w-8 h-8 text-slate-600 group-hover:text-nvidia-green group-hover:translate-x-2 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-              </svg>
-            </div>
-          </div>
-        </a>
-        
-        <!-- Lab 3 (original) -->
-        <a href="/gtc26/live-vlm-webui" class="group block bg-gradient-to-r from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700 hover:border-nvidia-green/50 transition-all duration-300">
-          <div class="flex flex-col md:flex-row md:items-center gap-6">
-            <div class="flex-shrink-0">
-              <div class="w-16 h-16 bg-nvidia-green/10 rounded-xl flex items-center justify-center text-3xl font-bold text-nvidia-green group-hover:bg-nvidia-green/20 transition-colors">
-                3
-              </div>
-            </div>
-            <div class="flex-1">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-xs font-medium text-nvidia-green bg-nvidia-green/10 px-2 py-1 rounded">~20 min</span>
-                <span class="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded">Intermediate</span>
-              </div>
-              <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-nvidia-green transition-colors">
-                Live VLM WebUI: Real-Time Vision AI
-              </h3>
-              <p class="text-slate-400">
-                Experience real-time vision inference with a WebRTC-based interface. Test VLMs with live camera feeds and interactive prompt engineering.
-              </p>
-            </div>
-            <div class="flex-shrink-0">
-              <svg class="w-8 h-8 text-slate-600 group-hover:text-nvidia-green group-hover:translate-x-2 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-              </svg>
-            </div>
-          </div>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- What You'll Learn -->
-  <section class="py-20 bg-slate-950">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Blackwell GPU Features You'll Master</h2>
-        <p class="text-lg text-slate-400 max-w-2xl mx-auto">Hands-on experience with Thor's most powerful capabilities</p>
-      </div>
-      
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="text-center">
-          <div class="w-16 h-16 mx-auto bg-nvidia-green/10 rounded-2xl flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-nvidia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">NVFP4 Quantization</h3>
-          <p class="text-slate-400 text-sm">Native 4-bit floating point for 2x memory efficiency and faster compute</p>
-        </div>
-        
-        <div class="text-center">
-          <div class="w-16 h-16 mx-auto bg-nvidia-green/10 rounded-2xl flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-nvidia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">EAGLE-3 Speculative</h3>
-          <p class="text-slate-400 text-sm">2-3x faster generation with zero quality loss</p>
-        </div>
-        
-        <div class="text-center">
-          <div class="w-16 h-16 mx-auto bg-nvidia-green/10 rounded-2xl flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-nvidia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">Real-Time Vision</h3>
-          <p class="text-slate-400 text-sm">Live VLM inference with Physical AI models like Cosmos-Reason1</p>
-        </div>
-        
-        <div class="text-center">
-          <div class="w-16 h-16 mx-auto bg-nvidia-green/10 rounded-2xl flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-nvidia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">128GB Unified Memory</h3>
-          <p class="text-slate-400 text-sm">Run large models entirely on-device for Physical AI</p>
-        </div>
       </div>
     </div>
   </section>
