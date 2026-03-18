@@ -6,8 +6,7 @@ name: Deploy Astro to GitHub Pages
 on:
   push:
     branches:
-      - main
-      - master
+      - wip/gtc26
   workflow_dispatch:
 
 permissions:
