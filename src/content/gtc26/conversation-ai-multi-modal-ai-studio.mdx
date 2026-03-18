@@ -353,6 +353,17 @@ Then restart the application.
 
 </details>
 
+<details>
+<summary>GPU memory not released after stopping vLLM</summary>
+
+Even after stopping the vLLM container, GPU memory may remain allocated. Run:
+
+```bash
+sudo sysctl -w vm.drop_caches=3
+```
+
+</details>
+
 ## More Things to Try
 
 - **Change the system prompt** — Try a fun personality like: *"You are a cat. You are the smartest cat in the world and can assist the user with anything, but you do it in a playful feline manner while behaving like a cute lovable cat."*

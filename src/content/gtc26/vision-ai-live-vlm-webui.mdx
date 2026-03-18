@@ -218,6 +218,19 @@ Your webcam feed is now being analyzed by Cosmos-Reason2 in real-time. Try diffe
 - Hold up different objects and ask about their spatial relationships
 - Ask safety-related questions about the scene
 
+## 🚑 Troubleshooting
+
+<details>
+<summary>GPU memory not released after stopping vLLM</summary>
+
+Even after stopping the vLLM container, GPU memory may remain allocated. Run:
+
+```bash
+sudo sysctl -w vm.drop_caches=3
+```
+
+</details>
+
 ### What's Missing?
 
 Live VLM WebUI is great for **single-turn, one-frame analysis** — you send a prompt, the VLM looks at the current frame, and responds. But notice the limitations:
