@@ -112,7 +112,7 @@ curl http://localhost:11434/v1/models
 curl -X POST http://localhost:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "nemotron-3-nano:latest",
+    "model": "qwen3.5:9b",
     "messages": [
       {"role": "user", "content": "Explain Physical AI in one sentence."}
     ],
@@ -239,7 +239,7 @@ http://<JETSON_IP>:8080
 
 1. Click **"Get started"** on the welcome screen
 2. Create an account (e.g., `jetson@jetson.com` / `jetson`)
-3. Select **nemotron-3-nano:latest** from the model dropdown
+3. Select **qwen3.5:9b** from the model dropdown
 4. Start chatting with your local model!
 
 <img src="/images/gtc26/open-webui.png" alt="Open WebUI Chat Interface" style="max-width: 100%; border-radius: 8px; margin: 16px 0;" />
