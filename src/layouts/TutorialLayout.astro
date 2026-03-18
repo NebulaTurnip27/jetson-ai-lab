@@ -144,6 +144,26 @@ const { Content, headings } = await tutorial.render();
 		background: #6b7280;
 	}
 
+	/* GFM task list: checkbox-style bullets */
+	:global(.prose .contains-task-list) {
+		list-style: none;
+		padding-left: 0;
+	}
+	:global(.prose .task-list-item) {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+	:global(.prose .task-list-item input[type="checkbox"]) {
+		margin-top: 0.35em;
+		width: 1.125rem;
+		height: 1.125rem;
+		accent-color: #76b900;
+		flex-shrink: 0;
+		cursor: default;
+	}
+
 	/* Add anchor link symbol on hover */
 	:global(.prose h2), :global(.prose h3) {
 		position: relative;

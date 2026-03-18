@@ -1,0 +1,178 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+import Admonition from '../../../components/Admonition.astro';
+import Info from '../../../components/admonition/Info.astro';
+import Note from '../../../components/admonition/Note.astro';
+import Warning from '../../../components/admonition/Warning.astro';
+import Tip from '../../../components/admonition/Tip.astro';
+import Danger from '../../../components/admonition/Danger.astro';
+import NoCopy from '../../../components/NoCopy.astro';
+
+export async function getStaticPaths() {
+  const labs = await getCollection('gtc26');
+  return labs
+    .sort((a, b) => a.data.order - b.data.order)
+    .map((lab) => ({ params: { slug: lab.slug }, props: { lab } }));
+}
+
+const { lab } = Astro.props;
+const { Content, headings } = await lab.render();
+
+const allLabs = (await getCollection('gtc26')).sort((a, b) => a.data.order - b.data.order);
+const currentIndex = allLabs.findIndex((l) => l.slug === lab.slug);
+const prevLab = currentIndex > 0 ? allLabs[currentIndex - 1] : null;
+const nextLab = currentIndex >= 0 && currentIndex < allLabs.length - 1 ? allLabs[currentIndex + 1] : null;
+---
+
+<Layout title={lab.data.labNumber != null ? `Chapter ${lab.data.labNumber}: ${lab.data.title} | GTC 2026` : `Setup: ${lab.data.title} | GTC 2026`} description={lab.data.description}>
+  <!-- Hero Section -->
+  <div class="bg-slate-900 text-white border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
+      <div class="max-w-3xl">
+        <div class="flex items-center gap-4 mb-6 text-sm">
+          <a href="/tutorials/gtc26" class="text-nvidia-green hover:text-white transition-colors flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            GTC 2026 Workshop
+          </a>
+          <span class="text-slate-500">•</span>
+          <span class="text-slate-400">{lab.data.labNumber != null ? `Chapter ${lab.data.labNumber} of 3` : 'Setup'}</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <span class="text-xs font-medium text-nvidia-green bg-nvidia-green/10 px-2 py-1 rounded">{lab.data.duration}</span>
+          {lab.data.type && (
+            <span class:list={['text-xs font-medium px-2 py-1 rounded', lab.data.type === 'Required' ? 'text-blue-400 bg-blue-500/10' : 'text-purple-400 bg-purple-500/10']}>{lab.data.type}</span>
+          )}
+        </div>
+
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight leading-tight">
+          {lab.data.title}
+        </h1>
+
+        <p class="text-xl text-slate-300 leading-relaxed">{lab.data.description}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="lg:grid lg:grid-cols-12 lg:gap-12">
+      <!-- Sidebar -->
+      <aside class="hidden lg:block lg:col-span-3">
+        <div class="sticky top-8">
+          <h3 class="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">On this page</h3>
+          <nav class="space-y-1">
+            {headings.filter((h) => h.depth <= 2).map((heading) => (
+              <a
+                href={`#${heading.slug}`}
+                class="block py-1.5 text-sm text-slate-600 hover:text-nvidia-green hover:pl-1 transition-all duration-200 border-l-2 border-transparent hover:border-nvidia-green pl-3 -ml-3"
+              >
+                {heading.text}
+              </a>
+            ))}
+          </nav>
+
+          <div class="mt-8 pt-8 border-t border-slate-200">
+            {prevLab && (
+              <a href={`/tutorials/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Previous: {prevLab.data.labNumber != null ? `Chapter ${prevLab.data.labNumber}` : 'Setup'}
+              </a>
+            )}
+            {nextLab ? (
+              <a href={`/tutorials/gtc26/${nextLab.slug}`} class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
+                Next: {nextLab.data.labNumber != null ? `Chapter ${nextLab.data.labNumber}` : 'Setup'}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </a>
+            ) : (
+              <a href="/tutorials/gtc26" class="flex items-center gap-2 text-sm text-nvidia-green font-medium hover:underline">
+                Back to Workshop Home
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </a>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="lg:col-span-9">
+        <div class="prose prose-slate prose-lg max-w-none
+          prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900
+          prose-p:text-slate-600 prose-p:leading-relaxed
+          prose-a:text-nvidia-green prose-a:no-underline hover:prose-a:underline
+          prose-strong:text-slate-900 prose-strong:font-bold
+          prose-code:text-slate-800 prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none prose-code:font-medium
+          prose-pre:bg-slate-900 prose-pre:shadow-lg prose-pre:rounded-xl prose-pre:border prose-pre:border-slate-800
+          [&_pre_code]:bg-transparent [&_pre_code]:text-slate-200 [&_pre_code]:p-0
+          prose-img:rounded-xl prose-img:shadow-md
+          prose-table:border prose-table:border-slate-200
+          prose-img:!my-0 prose-img:!shadow-none prose-img:!rounded-none prose-img:!p-0 prose-img:!bg-transparent">
+          <Content components={{ Admonition, Info, Note, Warning, Tip, Danger, NoCopy }} />
+        </div>
+
+        <!-- Navigation -->
+        <div class="mt-16 pt-8 border-t border-slate-200">
+          <div class="flex justify-between items-center">
+            {prevLab ? (
+              <a href={`/tutorials/gtc26/${prevLab.slug}`} class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                {prevLab.data.labNumber != null ? `Chapter ${prevLab.data.labNumber}` : 'Setup'}
+              </a>
+            ) : (
+              <a href="/tutorials/gtc26" class="flex items-center gap-2 text-slate-600 hover:text-nvidia-green transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Back to Workshop
+              </a>
+            )}
+            {nextLab ? (
+              <a href={`/tutorials/gtc26/${nextLab.slug}`} class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
+                Next: {nextLab.data.labNumber != null ? `Chapter ${nextLab.data.labNumber}` : 'Setup'}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </a>
+            ) : (
+              <div class="flex gap-4">
+                <a href="/tutorials/gtc26" class="flex items-center gap-2 bg-nvidia-green text-nvidia-black px-6 py-3 rounded-lg font-bold hover:bg-nvidia-green/90 transition-colors">
+                  Back to Workshop Home
+                </a>
+                <a href="/tutorials" class="flex items-center gap-2 bg-slate-100 text-slate-800 px-6 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors">
+                  Explore More Tutorials
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</Layout>
+
+<style is:global>
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px;
+  }
+  /* Admonitions (used in setup.mdx and other GTC26 content) */
+  .admonition {
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    border-left: 4px solid;
+  }
+  .admonition-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .admonition.note { background: #eff6ff; border-color: #3b82f6; }
+  .admonition.note .admonition-title { color: #1d4ed8; }
+  .admonition.warning { background: #fefce8; border-color: #eab308; }
+  .admonition.warning .admonition-title { color: #a16207; }
+  .admonition.danger { background: #fef2f2; border-color: #ef4444; }
+  .admonition.danger .admonition-title { color: #b91c1c; }
+  .admonition.tip { background: #f0fdf4; border-color: #22c55e; }
+  .admonition.tip .admonition-title { color: #15803d; }
+  .admonition.info { background: #f0fdf4; border-color: #76b900; }
+  .admonition.info .admonition-title { color: #76b900; }
+  /* No margin, padding, shadow, or rounding on prose images (e.g. terminal screenshots in tables) */
+  .prose img { margin-top: 0; margin-bottom: 0; padding: 0; background: transparent; box-shadow: none; border-radius: 0; }
+</style>

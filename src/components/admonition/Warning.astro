@@ -1,0 +1,7 @@
+---
+import Admonition from '../Admonition.astro';
+const { title } = Astro.props;
+---
+<Admonition type="warning" title={title}>
+  <slot />
+</Admonition>

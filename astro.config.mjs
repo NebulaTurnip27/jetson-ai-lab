@@ -14,7 +14,7 @@ export default defineConfig({
       wrap: true,
       excludeLangs: ['mermaid'], // Disable syntax highlighting for Mermaid
     },
-    rehypePlugins: [rehypeMermaid], // Render Mermaid diagrams at build time
+    rehypePlugins: [rehypeMermaid],
   },
   redirects: {
     // Jetson Setup Guide

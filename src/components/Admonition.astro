@@ -1,0 +1,30 @@
+---
+/**
+ * Admonition - Short MDX syntax for note/warning/tip/info/danger boxes.
+ *
+ * Usage in .mdx:
+ *   import Admonition from '../../components/Admonition.astro';
+ *   <Admonition type="info" title="Example">Content here.</Admonition>
+ *
+ * Or use the shorthand components (Info, Note, Warning, Tip, Danger).
+ */
+export interface Props {
+  type: 'info' | 'note' | 'warning' | 'tip' | 'danger';
+  title?: string;
+}
+
+const { type, title } = Astro.props;
+const defaultTitles: Record<string, string> = {
+  info: 'ℹ️ Info',
+  note: '📘 Note',
+  warning: '⚠️ Warning',
+  tip: '💡 Tip',
+  danger: '🚫 Danger',
+};
+const displayTitle = title ?? defaultTitles[type];
+---
+
+<div class={`admonition ${type}`}>
+  <p class="admonition-title">{displayTitle}</p>
+  <slot />
+</div>
