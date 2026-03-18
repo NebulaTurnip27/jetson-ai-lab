@@ -70,6 +70,8 @@ MODEL_PATH="$(home)/.cache/huggingface/hub/cosmos-reason2-2b_v1208-fp8-static-kv
 
 ### Step 3: Serve
 
+The second volume `-v ${HOME}/.cache/vllm:/root/.cache/vllm` persists vLLM's **torch.compile cache** on the host. The first run compiles kernels and writes them there; later runs reuse the cache and start faster. Create the dir if needed: `mkdir -p ~/.cache/vllm`.
+
 <div class="device-tabs">
 <div class="device-tab-bar">
 <button class="device-tab active" data-target="thor">Jetson Thor</button>
@@ -79,33 +81,39 @@ MODEL_PATH="$(home)/.cache/huggingface/hub/cosmos-reason2-2b_v1208-fp8-static-kv
 <div class="device-panel" data-panel="thor">
 
 ```bash
+mkdir -p ~/.cache/vllm
 sudo sysctl -w vm.drop_caches=3
 
 sudo docker run -it --rm --runtime=nvidia --network host \
   -v $MODEL_PATH:/models/cosmos-reason2-2b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:0.14.0-r38.3-arm64-sbsa-cu130-24.04 \
   vllm serve /models/cosmos-reason2-2b \
-    --served-model-name nvidia/cosmos-reason2-8b-fp8 \
+    --served-model-name nvidia/cosmos-reason2-2b-fp8 \
     --max-model-len 8192 \
     --gpu-memory-utilization 0.8 \
     --reasoning-parser qwen3 \
     --media-io-kwargs '{"video": {"num_frames": -1}}' \
     --enable-prefix-caching \
-    --port 8000
+    --port 8010
 ```
 
 </div>
 <div class="device-panel" data-panel="orin" style="display:none">
 
 ```bash
+mkdir -p ~/.cache/vllm
 sudo sysctl -w vm.drop_caches=3
 
 sudo docker run -it --rm --runtime=nvidia --network host \
   -v $MODEL_PATH:/models/cosmos-reason2-2b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
   vllm serve /models/cosmos-reason2-2b \
     --max-model-len 8192 --gpu-memory-utilization 0.8 --reasoning-parser qwen3 \
-    --media-io-kwargs '{"video": {"num_frames": -1}}'
+    --media-io-kwargs '{"video": {"num_frames": -1}}' \
+    --enable-prefix-caching \
+    --port 8010
 ```
 
 </div>
@@ -114,17 +122,21 @@ sudo docker run -it --rm --runtime=nvidia --network host \
 On Orin Super Nano, use memory-constrained flags:
 
 ```bash
+mkdir -p ~/.cache/vllm
 sudo sysctl -w vm.drop_caches=3
 
 sudo docker run -it --rm --runtime=nvidia --network host \
   -v $MODEL_PATH:/models/cosmos-reason2-2b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
   vllm serve /models/cosmos-reason2-2b \
     --enforce-eager --max-model-len 768 \
     --max-num-batched-tokens 768 \
     --gpu-memory-utilization 0.52 \
     --max-num-seqs 1 --enable-chunked-prefill \
-    --limit-mm-per-prompt '{"image":1}'
+    --limit-mm-per-prompt '{"image":1}' \
+    --enable-prefix-caching \
+    --port 8010
 ```
 
 You may also need to reduce the image resolution in `preprocessor_config.json` — see the [full tutorial](/tutorials/cosmos-reason2-vlm#step-4-serve-cosmos-reason2-with-vllm) for details.

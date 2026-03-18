@@ -62,6 +62,8 @@ export MODEL_PATH="${HOME}/.cache/huggingface/hub/cosmos-reason2-8b_v1208-fp8-st
 
 ### Step 3: Serve
 
+The second volume `-v ${HOME}/.cache/vllm:/root/.cache/vllm` persists vLLM's **torch.compile cache** on the host. The first run compiles kernels and writes them there; later runs reuse the cache and start faster. Create the dir if needed: `mkdir -p ~/.cache/vllm`.
+
 <div class="device-tabs">
 <div class="device-tab-bar">
 <button class="device-tab active" data-target="thor">Jetson Thor</button>
@@ -70,33 +72,39 @@ export MODEL_PATH="${HOME}/.cache/huggingface/hub/cosmos-reason2-8b_v1208-fp8-st
 <div class="device-panel" data-panel="thor">
 
 ```bash
+mkdir -p ~/.cache/vllm
 sudo sysctl -w vm.drop_caches=3
 
 sudo docker run -it --rm --runtime=nvidia --network host \
   -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:0.14.0-r38.3-arm64-sbsa-cu130-24.04 \
   vllm serve /models/cosmos-reason2-8b \
     --served-model-name nvidia/cosmos-reason2-8b-fp8 \
     --max-model-len 8192 \
-    --gpu-memory-utilization 0.8 \
+    --gpu-memory-utilization 0.7 \
     --reasoning-parser qwen3 \
     --media-io-kwargs '{"video": {"num_frames": -1}}' \
     --enable-prefix-caching \
-    --port 8000
+    --port 8010
 ```
 
 </div>
 <div class="device-panel" data-panel="orin" style="display:none">
 
 ```bash
+mkdir -p ~/.cache/vllm
 sudo sysctl -w vm.drop_caches=3
 
 sudo docker run -it --rm --runtime=nvidia --network host \
   -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
   vllm serve /models/cosmos-reason2-8b \
     --max-model-len 8192 --gpu-memory-utilization 0.8 --reasoning-parser qwen3 \
-    --media-io-kwargs '{"video": {"num_frames": -1}}'
+    --media-io-kwargs '{"video": {"num_frames": -1}}' \
+    --enable-prefix-caching \
+    --port 8010
 ```
 
 </div>

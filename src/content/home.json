@@ -70,6 +70,19 @@
       },
       "devices": ["Jetson Orin", "Jetson Xavier", "Jetson Nano"],
       "link": "/models/llama-4"
+    },
+    {
+      "title": "Nemotron3 Nano 4B",
+      "description": "NVIDIA's compact 4B Nano model with day-0 llama.cpp support on Jetson Orin and Thor",
+      "badge": "NEW",
+      "performance": {
+        "tokensPerSecond": "TBD",
+        "memoryUsage": "4GB RAM",
+        "quantization": "Q4_K_M GGUF",
+        "modelSize": "2.5GB"
+      },
+      "devices": ["Jetson Orin", "Jetson Thor"],
+      "link": "/models/nemotron3-nano-4b"
     }
   ]
-} 
+}
