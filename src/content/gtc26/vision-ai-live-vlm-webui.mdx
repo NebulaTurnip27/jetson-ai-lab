@@ -78,7 +78,13 @@ With VLMs, a single model can:
 ### Start vLLM Server with Cosmos-Reason2
 
 ```bash
-vllm serve ~/models/cosmos-reason2-8b \
+export MODEL_PATH="${HOME}/.cache/huggingface/hub/cosmos-reason2-8b_v1208-fp8-static-kv8"
+
+sudo docker run -it --rm --runtime=nvidia --network host \
+  -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+  -v ${HOME}/.cache/vllm:/root/.cache/vllm \
+  ghcr.io/nvidia-ai-iot/vllm:0.14.0-r38.3-arm64-sbsa-cu130-24.04 \
+  vllm serve /models/cosmos-reason2-8b \
     --served-model-name nvidia/cosmos-reason2-8b-fp8 \
     --max-model-len 8192 \
     --gpu-memory-utilization 0.7 \
@@ -97,7 +103,7 @@ vllm serve ~/models/cosmos-reason2-8b \
 </Tip>
 
 <Note title="📦 Pre-downloaded for This Workshop">
-  The Cosmos-Reason2 model weights and NGC credentials are already set up on your Jetson Thor at `~/models/cosmos-reason2-8b` — so you can skip Steps 1–2 and jump straight to the `docker run` command. It's effectively a one-liner!
+  The Cosmos-Reason2 model weights are already set up on your Jetson Thor at `~/.cache/huggingface/hub/cosmos-reason2-8b_v1208-fp8-static-kv8` — so you can skip Steps 1–2 and jump straight to the `docker run` command.
 </Note>
 
 Wait for the server to start. You'll see output like:
