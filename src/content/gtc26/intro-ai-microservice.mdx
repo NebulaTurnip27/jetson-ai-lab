@@ -7,6 +7,8 @@ type: Hands-On
 order: 1
 ---
 
+import Tabs from '../../components/Tabs.astro';
+
 In this chapter, you'll learn about AI microservices architecture and how to deploy inference services on Jetson Thor using Ollama with an OpenAI-compatible API.
 
 <Note title="📍 Run on Jetson">
@@ -121,37 +123,93 @@ curl -X POST http://localhost:11434/v1/chat/completions \
 You'll receive a JSON response with the model's completion.
 
 <Tip title="💡 OpenAI-Compatible">
-  This is the same API format used by OpenAI's GPT models. Any application built for OpenAI can work with your local Ollama server!
+  This is the same API format used by OpenAI's GPT models — see the [OpenAI Chat Completions API reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create). Any application built for OpenAI can work with your local Ollama server!
 </Tip>
 
 ## Architecture Overview
 
-Here's how AI microservices fit into an edge AI system:
+Here's how AI microservices work — the model runs as a server that exposes an API endpoint, and any application can interact with it through standard HTTP requests:
+
+<Tabs labels={["Ollama Only", "Ollama + vLLM"]}>
+  <div class="nv-tab-panel active">
 
 ```mermaid
-flowchart BT
+flowchart TB
     subgraph Apps[Applications]
-        A1[🤖 Robot Control]
-        A2[🌐 Web UI]
-        A3[🐍 Python Script]
+        A1[💬 curl command]
+        A2[🐍 Python Script]
+        A3[🌐 Web UI]
     end
 
     subgraph Jetson[Jetson Thor]
-        API[Ollama Server :11434]
-        LLM[Nemotron-3-Nano]
-        API --> LLM
+        subgraph API[Ollama Server :11434]
+            LLM[Nemotron-3-Nano]
+        end
     end
 
-    A1 --> API
-    A2 --> API
-    A3 --> API
+    EP1(v1/chat/completions)
+    EP2(api/chat)
 
+    A1 --> EP1
+    A2 --> EP1
+    A3 --> EP1
+    EP1 --- API
+    EP2 --- API
+
+    style EP1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style EP2 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,stroke-dasharray: 5 5
     style LLM fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style API fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
     style A1 fill:#fff9c4,stroke:#f9a825
     style A2 fill:#fff9c4,stroke:#f9a825
     style A3 fill:#fff9c4,stroke:#f9a825
 ```
+
+  </div>
+  <div class="nv-tab-panel">
+
+```mermaid
+flowchart TB
+    subgraph Apps[Applications]
+        A1[💬 curl command]
+        A2[🐍 Python Script]
+        A3[🌐 Web UI]
+    end
+
+    subgraph Jetson[Jetson Thor]
+        subgraph API[Ollama Server :11434]
+            LLM[Nemotron-3-Nano]
+        end
+        subgraph VLLM[VLLM :8000]
+            VLM[Cosmos-Reason2-8B]
+        end
+    end
+
+    EP1(v1/chat/completions)
+    EP2(api/chat)
+    EP3(v1/chat/completions)
+
+    A1 --> EP1
+    A2 --> EP1
+    A3 --> EP1
+    EP1 --- API
+    EP2 --- API
+    EP3 --- VLLM
+
+    style EP1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style EP2 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,stroke-dasharray: 5 5
+    style EP3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style LLM fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style VLM fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style API fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
+    style VLLM fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
+    style A1 fill:#fff9c4,stroke:#f9a825
+    style A2 fill:#fff9c4,stroke:#f9a825
+    style A3 fill:#fff9c4,stroke:#f9a825
+```
+
+  </div>
+</Tabs>
 
 Multiple applications can share the same inference service, reducing resource usage and simplifying deployment.
 
@@ -194,16 +252,36 @@ http://<JETSON_IP>:8080
   This shows the power of microservices: Ollama runs the model, Open WebUI provides the interface, and they communicate via the standard OpenAI API. You can swap either component independently.
 </Tip>
 
+### Bonus Challenge: Try a Vision Language Model (VLM)
+
+Ollama's [model library](https://ollama.com/library) includes many vision-capable models — these are **Vision Language Models (VLMs)** that can understand both text and images.
+
+Challenge yourself to quickly get a VLM running and use it through Open WebUI:
+
+1. Pull a vision-capable model:
+   ```bash
+   ollama pull gemma3:4b
+   ```
+2. In Open WebUI, select **gemma3:4b** from the model dropdown
+3. Attach an image file to your message and ask the model to describe it — you're running multimodal AI locally on your Jetson!
+
+<Note title="📝 Gemma3 Vision Support">
+  `gemma3` supports vision input at **4B and above** (4B, 12B, 27B). The 1B variant does not support image input.
+</Note>
+
+Notice that Open WebUI only lets you upload **static images** one at a time. What if you wanted to continuously feed a live camera stream into a VLM — for real-time video understanding? There's no built-in way to do that here. <br/>**That's exactly what we'll tackle in the next chapter!**
+
+
+## Before Moving to Chapter 2
+
 ### Stop Open WebUI (Optional)
 
-When done, you can stop the container:
+In the next chapter, we don't use Open WebUI, so you can stop the container:
 
 ```bash
 docker stop open-webui
 docker rm open-webui
 ```
-
-## Before Moving to Chapter 2
 
 Before starting the next chapter (which uses vLLM), stop Ollama to free up GPU memory:
 

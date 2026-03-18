@@ -11,6 +11,9 @@ In this chapter, you'll explore Vision Language Models (VLMs) on Jetson Thor —
 
 <Note title="📍 Run on Jetson">
   All commands in this lab should be run in your **Jetson terminal** (SSH session), not on your client PC.
+  Make sure your terminal prompt shows `jetson@jat-xxxxxxxxxxxx` — that means you're on the Jetson.
+
+  ![Jetson terminal](/images/gtc26/terminal_on_jetson.png)
 </Note>
 
 <Note title="⚠️ Free GPU Memory First">
@@ -31,7 +34,7 @@ A **Vision Language Model (VLM)** combines computer vision with natural language
 
 ### Why VLMs and Not CNN-Based Models for Physical AI?
 
-Traditional CNN-based models **detect** — they output bounding boxes or class labels. A CNN-based system knows *"there's a cup"* but not *"the cup is too close to the edge and might fall."*
+Traditional CNN-based object detection models like **YOLO** — they output bounding boxes or class labels. A CNN-based system knows *"there's a cup"* but not *"the cup is too close to the edge and might fall."*
 
 **VLMs think.** They reason about context, spatial relationships, and consequences:
 
@@ -47,7 +50,7 @@ Traditional CNN-based models **detect** — they output bounding boxes or class 
 <tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">"Detected: person, chair"</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">"A person is about to sit on an unstable chair"</td></tr>
 <tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">One model = one task</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">One model = unlimited tasks</td></tr>
 <tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Retrain for new scenarios</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Just change the prompt</td></tr>
-<tr style="background: #ffffff;"><td style="padding: 12px 16px;">Fixed vocabulary</td><td style="padding: 12px 16px;">Open-ended responses</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 12px 16px;">Fixed vocabulary (pre-defined classes)</td><td style="padding: 12px 16px;">Open vocabulary (knows "everything")</td></tr>
 </tbody>
 </table>
 </div>
@@ -85,8 +88,16 @@ vllm serve ~/models/cosmos-reason2-8b \
     --port 8000
 ```
 
-<Note title="📦 Pre-downloaded Model">
-  The Cosmos-Reason2 model is already downloaded at `~/models/cosmos-reason2-8b` on your Jetson Thor. Hugging Face models are cached in `~/.cache/huggingface`.
+<Tip title="💡 Finding Models for Jetson">
+  When you want to run a model on Jetson, head to [jetson-ai-lab.com/models](https://www.jetson-ai-lab.com/models) — it's a curated catalog of models tested on Jetson. Each model page has either a **"Run"** button (a one-click command you can copy-paste) or a **"Details"** button that walks you through setup steps.
+
+  <img src="/images/gtc26/model-page-excerpt.png" alt="Jetson AI Lab Models page excerpt" style="max-width: 100%; border-radius: 8px; margin: 16px 0;" />
+
+  For Cosmos-Reason2 8B, the [model page](https://www.jetson-ai-lab.com/models/cosmos-reason2-8b) has a **Details** page because the model weights need to be downloaded from NGC using `ngc-cli` with your NGC API key (Steps 1 and 2 on the page).
+</Tip>
+
+<Note title="📦 Pre-downloaded for This Workshop">
+  The Cosmos-Reason2 model weights and NGC credentials are already set up on your Jetson Thor at `~/models/cosmos-reason2-8b` — so you can skip Steps 1–2 and jump straight to the `docker run` command. It's effectively a one-liner!
 </Note>
 
 Wait for the server to start. You'll see output like:
@@ -157,8 +168,20 @@ https://<JETSON_IP>:8090
 
 Replace `<JETSON_IP>` with your Jetson's IP address.
 
-<Warning title="🔒 SSL Certificate">
-  You'll see a security warning. Click **Advanced** → **Proceed to site** to continue.
+<Warning title="🔒 Accept the Self-signed SSL Certificate">
+  You'll see a security warning in your browser. This is expected — the container uses a self-signed certificate for HTTPS (required for webcam access).
+
+  1. Click **"Advanced"**
+
+     ![Chrome Advanced](https://raw.githubusercontent.com/NVIDIA-AI-IOT/live-vlm-webui/refs/heads/main/docs/images/chrome_advanced.png)
+
+  2. Click **"Proceed to \<IP_ADDRESS\> (unsafe)"**
+
+     ![Chrome Proceed](https://raw.githubusercontent.com/NVIDIA-AI-IOT/live-vlm-webui/refs/heads/main/docs/images/chrome_proceed.png)
+
+  3. Allow camera access when prompted
+
+     ![Chrome Webcam Access](https://raw.githubusercontent.com/NVIDIA-AI-IOT/live-vlm-webui/refs/heads/main/docs/images/chrome_webcam_access.png)
 </Warning>
 
 ### Configure Live VLM WebUI
@@ -194,4 +217,17 @@ Your webcam feed is now being analyzed by Cosmos-Reason2 in real-time. Try diffe
 - Point the camera at your GTC badge and ask it to read the text
 - Hold up different objects and ask about their spatial relationships
 - Ask safety-related questions about the scene
+
+### What's Missing?
+
+Live VLM WebUI is great for **single-turn, one-frame analysis** — you send a prompt, the VLM looks at the current frame, and responds. But notice the limitations:
+
+- **No temporal understanding** — it processes one frame at a time and cannot ingest multiple frames from a video to understand motion, sequences, or changes over time
+- **No conversational context** — each query is independent; the VLM doesn't remember past interactions or previously seen frames
+
+What if you could have a VLM that watches a continuous video stream, builds up context over time, and you could even **talk to it with your voice**? That's exactly what we'll build in the next chapter.
+
+<Tip title="📖 Want to Learn More?">
+  For a deeper dive into Live VLM WebUI — including advanced settings, custom prompts, RTSP camera support, and building your own app — check out the full tutorial at [jetson-ai-lab.com/tutorials/live-vlm-webui](https://www.jetson-ai-lab.com/tutorials/live-vlm-webui/).
+</Tip>
 
