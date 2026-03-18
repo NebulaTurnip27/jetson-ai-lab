@@ -81,7 +81,7 @@ With VLMs, a single model can:
 export MODEL_PATH="${HOME}/.cache/huggingface/hub/cosmos-reason2-8b_v1208-fp8-static-kv8"
 
 sudo docker run -it --rm --runtime=nvidia --network host \
-  -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+  -v ${HOME}/models/cosmos-reason2-8b-fp8:/models/cosmos-reason2-8b:ro \
   -v ${HOME}/.cache/vllm:/root/.cache/vllm \
   ghcr.io/nvidia-ai-iot/vllm:0.14.0-r38.3-arm64-sbsa-cu130-24.04 \
   vllm serve /models/cosmos-reason2-8b \
