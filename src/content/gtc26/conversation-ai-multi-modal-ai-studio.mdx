@@ -100,8 +100,8 @@ flowchart TB
 NVIDIA Riva provides the ASR and TTS services for the voice pipeline. It runs as a Docker container exposing a gRPC endpoint on port `50051`.
 
 ```bash
-cd ~/riva_quickstart_arm64_v2.24.0
-bash riva_start.sh
+cd ~/.cache/riva/riva_quickstart_arm64_v2.24.0
+bash riva_start.sh config.sh -s
 ```
 
 Wait for the server to be ready. You can monitor the logs:
@@ -163,12 +163,22 @@ INFO:     Uvicorn running on http://0.0.0.0:8010
 
 ## Step 3: Start Multi-modal AI Studio
 
-In a **new terminal** (keep Riva and vLLM running), start the application:
+In a **new terminal** (keep Riva and vLLM running), set up and start the application:
 
 ```bash
 cd ~/multi-modal-ai-studio
-source .venv/bin/activate
 
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Install in development mode
+pip install -e .
+```
+
+Then launch Multi-modal AI Studio:
+
+```bash
 multi-modal-ai-studio --port 8092 \
   --asr-server localhost:50051 \
   --tts-server localhost:50051 \
