@@ -68,10 +68,16 @@ Ideally, your Jetson developer kit comes pre-setup. But you can also set it up y
       <li><p>You should see a "L4T-README" drive automatically mounted on your PC.</p></li>
       <li>
         <p>Open a terminal on your PC and SSH into the Jetson:</p>
+        <div class="admonition info">
+          <p class="admonition-title">🔰 What is SSH?</p>
+          <p>SSH (Secure Shell) lets you remotely control the Jetson from your own laptop's terminal — as if you were typing directly on the Jetson. No monitor or keyboard needs to be plugged into the Jetson itself.</p>
+        </div>
+        <p>On <strong>Windows</strong>, open <strong>PowerShell</strong> or <strong>Command Prompt</strong>. On <strong>Mac/Linux</strong>, open <strong>Terminal</strong>. Then type:</p>
         <pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"ssh USERNAME@192.168.55.1"}</code></pre>
         <div class="admonition note">
           <p class="admonition-title">📘 Note</p>
-          <p>Replace <code>USERNAME</code> with the actual username set on the device. You will be prompted for the password.</p>
+          <p>Replace <code>USERNAME</code> with the username set on the Jetson. Check with the person or organization who provided the hardware for the username and password. You will be prompted for the password after running the command.</p>
+          <p>The address <code>192.168.55.1</code> is a fixed IP that the Jetson assigns itself over the USB cable — you do not need to look it up.</p>
         </div>
       </li>
     </ol>
@@ -99,26 +105,47 @@ Ideally, your Jetson developer kit comes pre-setup. But you can also set it up y
 </Tabs>
 
 
-## Wi-Fi Connection
+## Network Connection
 
-Connect Jetson to a Wi-Fi network (especially useful in headless mode):
+After you've connected to the Jetson via USB (above), you'll want to connect it to a network so it has **internet access** (for downloading models, packages, etc.) and so **multiple team members** can SSH into it at the same time.
 
-<pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"sudo nmcli device wifi connect WIFI_SSID password WIFI_PASSWORD"}</code></pre>
+<div class="admonition info">
+  <p class="admonition-title">🔰 Why do I need this?</p>
+  <p>The USB connection only lets <strong>one PC</strong> talk to the Jetson and does <strong>not</strong> provide internet. Connecting to Wi-Fi or Ethernet gives the Jetson its own IP address on the local network, enabling internet access and multi-user SSH.</p>
+</div>
 
-Replace `WIFI_SSID` and `WIFI_PASSWORD` with your actual Wi-Fi network name and password.
+<Tabs labels={["Wi-Fi", "Ethernet (wired)"]}>
+  <div class="nv-tab-panel active">
+    <p>While SSH'd into the Jetson via USB, run this command to connect to Wi-Fi:</p>
+    <pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"sudo nmcli device wifi connect WIFI_SSID password WIFI_PASSWORD"}</code></pre>
+    <p>Replace <code>WIFI_SSID</code> with your Wi-Fi network name and <code>WIFI_PASSWORD</code> with the password.</p>
+  </div>
 
-Once connected, check the assigned IP address:
+  <div class="nv-tab-panel">
+    <p>If an Ethernet cable is available, simply plug it into the Ethernet port on the Jetson. Most networks will automatically assign an IP address via DHCP — no extra commands needed.</p>
+  </div>
+</Tabs>
 
-<pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"ip addr"}</code></pre>
+### Finding the Jetson's IP Address
 
-Then SSH from any PC on the same network:
+Once connected to Wi-Fi or Ethernet, find the Jetson's new IP address by running this on the Jetson (via your existing USB SSH session):
 
-<pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"ssh USERNAME@JETSON_WIFI_IP"}</code></pre>
+<pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"hostname -I"}</code></pre>
+
+This prints the IP address(es) assigned to the Jetson. Look for an address like `192.168.x.x` or `10.x.x.x` (ignore `192.168.55.1` — that's the USB connection).
+
+### SSH over the Network
+
+Now any team member on the **same network** can SSH into the Jetson using this IP:
+
+<pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"ssh USERNAME@JETSON_IP"}</code></pre>
+
+Replace `USERNAME` with your Jetson's username and `JETSON_IP` with the address you found above (e.g. `ssh jetson@192.168.1.42`).
 
 <div class="admonition tip">
   <p class="admonition-title">💡 Tip</p>
   <p>Sometimes, the Wi-Fi network policy blocks device-to-device connections (like SSH).</p>
-  <p>USB Device Mode still lets you connect via the USB cable, but limits access to one PC. If your team needs multiple PCs to access Jetson simultaneously but Wi-Fi blocks SSH, bring a <strong>portable Wi-Fi router</strong> to create a local network.</p>
+  <p>USB Device Mode still lets you connect via the USB cable, but limits access to one PC. If your team needs multiple PCs to access Jetson simultaneously but Wi-Fi blocks SSH, bring a <strong>portable Wi-Fi router</strong> to create a local network, or use an <strong>Ethernet cable</strong> to a shared switch/router.</p>
 </div>
 
 

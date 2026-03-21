@@ -163,10 +163,11 @@ INFO:     Uvicorn running on http://0.0.0.0:8010
 
 ## Step 3: Start Multi-modal AI Studio
 
-In a **new terminal** (keep Riva and vLLM running), set up and start the application:
+In a **new terminal** (keep Riva and vLLM running), clone the [Multi-modal AI Studio](https://github.com/NVIDIA-AI-IOT/multi_modal_ai_studio) repository, set up, and start the application:
 
 ```bash
-cd ~/multi-modal-ai-studio
+git clone https://github.com/NVIDIA-AI-IOT/multi_modal_ai_studio.git ~/multi_modal_ai_studio
+cd ~/multi_modal_ai_studio
 
 # Create and activate virtual environment
 python3 -m venv .venv
@@ -335,7 +336,7 @@ These use your client PC's browser devices via WebRTC.
 You need to activate the Python virtual environment first:
 
 ```bash
-cd ~/multi-modal-ai-studio
+cd ~/multi_modal_ai_studio
 source .venv/bin/activate
 ```
 
