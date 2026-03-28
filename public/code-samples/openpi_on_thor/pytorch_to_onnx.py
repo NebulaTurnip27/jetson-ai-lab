@@ -381,23 +381,23 @@ def patch_model_for_export(model, compute_dtype=torch.float16):
         )
 
         dt = -1.0 / num_steps
-        dt = torch.tensor(dt, dtype=self.compute_dtype, device=device)
+        dt_f32 = torch.tensor(dt, dtype=torch.float32, device=device)
 
-        x_t = noise
-        time = torch.tensor(1.0, dtype=self.compute_dtype, device=device)
-        while time >= -dt / 2:
-            expanded_time = time.expand(bsize)
+        x_t = noise.float()
+        time = torch.tensor(1.0, dtype=torch.float32, device=device)
+        while time >= -dt_f32 / 2:
+            expanded_time = time.to(self.compute_dtype).expand(bsize)
             v_t = self.denoise_step(
                 state,
                 prefix_pad_masks,
                 past_key_values,
-                x_t,
+                x_t.to(self.compute_dtype),
                 expanded_time,
             )
 
-            x_t = x_t + dt * v_t
-            time += dt
-        return x_t
+            x_t = x_t + dt_f32 * v_t.float()
+            time += dt_f32
+        return x_t.to(self.compute_dtype)
 
     def denoise_step_hook(self, state, prefix_pad_masks, past_key_values, x_t, timestep):
         """Perform one denoising step using TensorRT-compatible operations.
@@ -547,7 +547,7 @@ def quantize_model(
 
 def _prepare_model_for_export(
     model: torch.nn.Module,
-    precision: str = "fp16",
+    precision: str = "fp8",
     dummy_inputs: Tuple = None,
     config_obj=None,
     checkpoint_dir: str = None,
@@ -560,7 +560,7 @@ def _prepare_model_for_export(
 
     Args:
         model: PyTorch model to prepare
-        precision: Model precision, either "fp16" or "fp8"
+        precision: Model precision ("fp8")
         dummy_inputs: Dummy inputs for FP8 calibration (required for fp8)
         config_obj: Training config object (for loading calibration data)
         checkpoint_dir: Path to model checkpoint directory (for loading calibration policy)
@@ -599,7 +599,10 @@ def _prepare_model_for_export(
         if enable_llm_nvfp4:
             dtype_str += " with NVFP4 LLM"
     else:
-        dtype_str = "float16"
+        raise ValueError(
+            "Only FP8 precision is supported. The Pi0.5 model uses BF16 natively and "
+            "FP16 has insufficient dynamic range. Use: --precision fp8 --enable_llm_nvfp4 --quantize_attention_matmul"
+        )
 
     device = next(model.parameters()).device
     print(f"  Model device: {device}, dtype: {dtype_str}")
@@ -615,7 +618,7 @@ def export_to_onnx(
     output_path: Path,
     model_config,
     num_steps: int = 10,
-    precision: str = "fp16",
+    precision: str = "fp8",
     config_obj=None,
     checkpoint_dir: str = None,
     num_calibration_samples: int = 32,
@@ -630,7 +633,7 @@ def export_to_onnx(
         output_path: Output directory path
         model_config: Model configuration (Pi0Config)
         num_steps: Number of denoising steps (default: 10)
-        precision: Model precision, either "fp16" or "fp8" (default: "fp16")
+        precision: Model precision ("fp8")
         config_obj: Training config object (for FP8 calibration with real data)
         checkpoint_dir: Path to model checkpoint directory (for loading calibration policy)
         num_calibration_samples: Number of calibration samples for FP8 (default: 32)
@@ -715,7 +718,7 @@ def export_checkpoint_to_onnx(
     output_path: Path,
     config_name: str = "pi05_droid",
     num_steps: int = 10,
-    precision: str = "fp16",
+    precision: str = "fp8",
     num_calibration_samples: int = 32,
     enable_llm_nvfp4: bool = False,
     quantize_attention_matmul: bool = True,
@@ -728,7 +731,7 @@ def export_checkpoint_to_onnx(
         output_path: ONNX output directory path
         config_name: Model configuration name
         num_steps: Number of denoising steps
-        precision: Model precision, either "fp16" or "fp8" (default: "fp16")
+        precision: Model precision ("fp8")
         num_calibration_samples: Number of samples to use for FP8 calibration (default: 32)
         enable_llm_nvfp4: Enable NVFP4 quantization for LLM layers (default: False)
         quantize_attention_matmul: Enable QDQ nodes for attention matmul operations (default: True)
@@ -788,9 +791,9 @@ def main():
     parser.add_argument(
         "--precision",
         type=str,
-        default="fp16",
-        choices=["fp16", "fp8", "FP16", "FP8"],
-        help="Model precision type: fp16 or fp8 (default: fp16)",
+        default="fp8",
+        choices=["fp8", "FP8"],
+        help="Model precision type (default: fp8). FP16 is not supported — the model uses BF16 natively.",
     )
     parser.add_argument(
         "--num_calibration_samples",

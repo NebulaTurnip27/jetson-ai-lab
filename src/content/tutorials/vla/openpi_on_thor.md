@@ -328,9 +328,10 @@ The ONNX model is saved to:
 
 | Flag | Precision | Latency | Notes |
 |---|---|---|---|
-| `--precision fp16` | FP16 only | — | No quantization, simplest |
 | `--precision fp8 --quantize_attention_matmul` | FP8 | ~95 ms | Good accuracy/speed tradeoff |
 | **`--precision fp8 --enable_llm_nvfp4 --quantize_attention_matmul`** | **FP8 + NVFP4** | **~94 ms** | **Recommended — best latency** |
+
+> **Note:** Pure FP16 (`--precision fp16`) is not supported. The Pi0.5 model uses BF16 natively (8-bit exponent). FP16 has a much smaller dynamic range (5-bit exponent), causing overflow in the Gemma attention layers that compounds over the denoising loop.
 
 </details>
 
@@ -371,18 +372,18 @@ python openpi_on_thor/pi05_inference.py \
   --num-test-runs 10
 ```
 
-**Expected output (~94 ms on Thor, MAXN mode):**
+**Expected output (~96 ms on Thor, MAXN mode):**
 
 ```
 ============================================================
 Results:
 ============================================================
 Actions shape: (10, 7)
-Actions range: [-0.3947, 0.9313]
-Total inference time: 94.28 ± 0.21 ms
-    (min: 94.04, max: 94.73)
-Model inference time: 89.80 ± 0.12 ms
-    (min: 89.62, max: 90.07)
+Actions range: [-0.3147, 0.8649]
+Total inference time: 96.42 ± 0.33 ms
+    (min: 95.98, max: 96.91)
+Model inference time: 91.99 ± 0.26 ms
+    (min: 91.70, max: 92.54)
 ```
 
 ---
@@ -401,10 +402,23 @@ python openpi_on_thor/pi05_inference.py \
   --num-test-runs 10
 ```
 
-This reports:
-- **Cosine similarity** between PyTorch and TensorRT outputs (should be > 0.99)
-- **Absolute difference** statistics
-- **Speedup** ratio (expect ~1.7× over PyTorch)
+**Expected comparison output:**
+
+```
+Cosine Similarity:
+  - Overall: 0.99557564
+  - Per-timestep Mean: 0.99580561
+  - Per-timestep Min:  0.99352367
+  - Per-timestep Max:  0.99797150
+
+Speedup:
+  - Total: 1.71x
+  - Model: 1.75x
+```
+
+Key metrics:
+- **Cosine similarity** > 0.99 across all timesteps confirms the TRT engine faithfully reproduces PyTorch behavior
+- **1.7× speedup** over PyTorch BF16 inference
 
 ---
 
@@ -464,6 +478,7 @@ actions = action_chunk["actions"]  # (10, 7) action trajectory
 | Checkpoint download fails | Check internet connectivity; GCS URLs require no auth for public checkpoints |
 | GPU railgate re-enables after reboot | Re-run the `echo on > .../power/control` command after each boot |
 | `ImportError: modelopt` | Ensure you're using the `[thor]` Docker image; `nvidia-modelopt` is pre-installed |
+| Low cosine similarity (< 0.99) in compare mode | Ensure you built the engine with `--stronglyTyped` (the default `build_engine.sh` includes this) and are using the latest `pytorch_to_onnx.py` which performs denoising-loop accumulation in FP32. Re-export ONNX and rebuild the engine. |
 | HuggingFace dataset download needs token | Set `export HF_TOKEN=<your_token>` if using `--use-dataset` flag |
 
 ---
