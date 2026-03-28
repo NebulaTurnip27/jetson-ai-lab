@@ -53,10 +53,24 @@ ACTION_DIM=32
 
 mkdir -p "$(dirname "$ENGINE_PATH")"
 
+# Auto-detect precision flags from ONNX filename.
+# --stronglyTyped preserves FP32 precision for numerically sensitive operations
+# (softmax, RMSNorm) and FP32 denoising loop accumulation.
+ONNX_BASENAME=$(basename "$ONNX_PATH" .onnx)
+if [[ "$ONNX_BASENAME" == *"fp8"* ]] || [[ "$ONNX_BASENAME" == *"nvfp4"* ]]; then
+    PRECISION_FLAGS="--fp16 --fp8 --stronglyTyped"
+else
+    PRECISION_FLAGS="--fp16 --stronglyTyped"
+    echo "WARNING: No FP8/NVFP4 quantization detected in ONNX filename."
+    echo "  For best accuracy and performance, use FP8+NVFP4 quantization (see Step 10)."
+    echo ""
+fi
+
 echo "Converting ONNX model to TensorRT engine..."
 echo "Configuration:"
 echo "  ONNX Path: $ONNX_PATH"
 echo "  Engine Path: $ENGINE_PATH"
+echo "  Precision Flags: $PRECISION_FLAGS"
 echo "  Batch Sizes: min=$MIN_BATCH, opt=$OPT_BATCH, max=$MAX_BATCH"
 echo "  Sequence Lengths: min=$MIN_SEQ_LEN, opt=$OPT_SEQ_LEN, max=$MAX_SEQ_LEN"
 echo "  Action Horizon: $ACTION_HORIZON"
@@ -65,8 +79,7 @@ echo ""
 /usr/src/tensorrt/bin/trtexec \
     --onnx="$ONNX_PATH" \
     --saveEngine="$ENGINE_PATH" \
-    --fp16 \
-    --fp8 \
+    $PRECISION_FLAGS \
     --useCudaGraph \
     --verbose \
     --separateProfileRun \
