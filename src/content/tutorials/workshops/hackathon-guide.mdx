@@ -46,8 +46,9 @@ Ideally, your Jetson developer kit comes pre-setup. But you can also set it up y
   <div class="nv-tab-panel">
     <p>If the Jetson has not been set up, go through the initial setup guide that matches your hardware:</p>
     <ul>
-      <li><strong>Jetson Orin Nano 8GB Developer Kit</strong> - <a href="/tutorials/initial-setup-jetson-orin-nano">Initial Setup Guide</a></li>
-      <li><strong>Jetson AGX Orin 64GB Developer Kit</strong> - <a href="/tutorials/initial-setup-sdk-manager">Initial Setup (SDK Manager)</a></li>
+      <li><a href="/tutorials/initial-setup-jetson-orin-nano"><strong>Jetson Orin Nano 8GB Developer Kit</strong> — Setup Guide</a></li>
+      <li><a href="https://developer.nvidia.com/embedded/learn/get-started-jetson-agx-orin-devkit"><strong>Jetson AGX Orin 64GB Developer Kit</strong> — Setup Guide</a></li>
+      <li><a href="https://docs.nvidia.com/jetson/agx-thor-devkit/user-guide/latest/index.html"><strong>Jetson AGX Thor Developer Kit</strong> — Setup Guide</a></li>
     </ul>
   </div>
 </Tabs>
@@ -136,16 +137,61 @@ This prints the IP address(es) assigned to the Jetson. Look for an address like 
 
 ### SSH over the Network
 
-Now any team member on the **same network** can SSH into the Jetson using this IP:
+Once the Jetson is on your Wi-Fi or Ethernet network, **you no longer need the USB cable**. Any team member on the **same network** can SSH into the Jetson directly from their own laptop:
 
 <pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"ssh USERNAME@JETSON_IP"}</code></pre>
 
 Replace `USERNAME` with your Jetson's username and `JETSON_IP` with the address you found above (e.g. `ssh jetson@192.168.1.42`).
 
+<div class="admonition info">
+  <p class="admonition-title">🔰 No USB cable required</p>
+  <p>The USB cable was only needed for the <strong>initial setup</strong> — to connect the Jetson to Wi-Fi or Ethernet. Once the Jetson has a network IP address, you can <strong>unplug the USB cable</strong> and SSH over the network from any laptop. Multiple team members can connect at the same time, each from their own machine.</p>
+</div>
+
 <div class="admonition tip">
   <p class="admonition-title">💡 Tip</p>
   <p>Sometimes, the Wi-Fi network policy blocks device-to-device connections (like SSH).</p>
   <p>USB Device Mode still lets you connect via the USB cable, but limits access to one PC. If your team needs multiple PCs to access Jetson simultaneously but Wi-Fi blocks SSH, bring a <strong>portable Wi-Fi router</strong> to create a local network, or use an <strong>Ethernet cable</strong> to a shared switch/router.</p>
+</div>
+
+### Use VS Code or Cursor for Remote Development
+
+Instead of working in a plain terminal, you can connect **VS Code** or **Cursor** directly to the Jetson over SSH. This gives you a full IDE experience — file browsing, code editing with syntax highlighting, integrated terminal, and extensions — all running on your laptop while the code executes on the Jetson.
+
+<ol>
+  <li>
+    <p>Install the <strong>Remote - SSH</strong> extension:</p>
+    <ul>
+      <li><strong>VS Code</strong>: Open Extensions (<code>Ctrl+Shift+X</code>), search for <strong>"Remote - SSH"</strong> by Microsoft, and install it.</li>
+      <li><strong>Cursor</strong>: The Remote - SSH extension is built-in — no installation needed.</li>
+    </ul>
+    <img src="/images/workshops/vscode-remote-ssh-extension.png" alt="Remote - SSH extension in VS Code marketplace" class="tutorial-img" style="max-width: 100%; margin-top: 0.75rem;" />
+  </li>
+  <li>
+    <p>Open the Command Palette (<code>Ctrl+Shift+P</code> / <code>Cmd+Shift+P</code> on Mac) and select <strong>"Remote-SSH: Connect to Host..."</strong></p>
+    <p>Enter the SSH connection string — for example: <code>jetson@192.168.1.42</code></p>
+    <pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"USERNAME@JETSON_IP"}</code></pre>
+  </li>
+  <li>
+    <p>When prompted, select <strong>Linux</strong> as the platform for the remote host:</p>
+    <img src="/images/workshops/vscode-remote-ssh-platform-select.png" alt="Select Linux as the remote host platform" class="tutorial-img" style="max-width: 520px; margin-top: 0.75rem;" />
+  </li>
+  <li>
+    <p>Enter the password when prompted:</p>
+    <img src="/images/workshops/vscode-remote-ssh-password.png" alt="Password prompt for SSH connection" class="tutorial-img" style="max-width: 520px; margin-top: 0.75rem;" />
+    <p>The editor will connect and install a lightweight server on the Jetson automatically.</p>
+  </li>
+  <li>
+    <p>Once connected, you'll see <strong>"SSH: &lt;IP address&gt;"</strong> in the bottom-left corner. Use <strong>Open Folder</strong> to browse and edit files on the Jetson, and open the integrated terminal (<code>Ctrl+`</code>) to run commands — all from the comfort of your laptop's IDE.</p>
+    <img src="/images/workshops/vscode-remote-ssh-connected.png" alt="VS Code connected to Jetson via SSH showing Open Folder and SSH indicator" class="tutorial-img" style="max-width: 420px; margin-top: 0.75rem;" />
+  </li>
+</ol>
+
+<div class="admonition tip">
+  <p class="admonition-title">💡 Tip — Save your SSH config for one-click access</p>
+  <p>To avoid typing the IP address every time, add the Jetson to your SSH config file (<code>~/.ssh/config</code>):</p>
+  <pre style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px;"><code>{"Host jetson\n    HostName 192.168.1.42\n    User jetson"}</code></pre>
+  <p>Replace the IP and username with your values. After this, you can simply select <strong>"jetson"</strong> from the host list in VS Code/Cursor — or type <code>ssh jetson</code> in a terminal.</p>
 </div>
 
 
