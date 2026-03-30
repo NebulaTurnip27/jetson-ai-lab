@@ -427,7 +427,7 @@ Key metrics:
 For production robotics deployment, launch a WebSocket policy server that robots can query over the network:
 
 ```bash
-python scripts/serve_policy.py \
+python openpi_on_thor/serve_policy.py \
   --use-tensorrt \
   --tensorrt-engine ~/.cache/openpi/openpi-assets/checkpoints/${CONFIG_NAME}_pytorch/engine/model_fp8_nvfp4.engine \
   --port 8000 \
@@ -435,6 +435,8 @@ python scripts/serve_policy.py \
   --policy.config=${CONFIG_NAME} \
   --policy.dir=~/.cache/openpi/openpi-assets/checkpoints/${CONFIG_NAME}_pytorch
 ```
+
+> **Note:** This uses `openpi_on_thor/serve_policy.py` which extends OpenPi's `serve_policy.py` with TensorRT support. To serve without TensorRT (PyTorch only), omit `--use-tensorrt` and `--tensorrt-engine`.
 
 The server listens on `0.0.0.0:8000` and accepts observations via WebSocket. A robot client can then query it:
 
