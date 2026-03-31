@@ -34,7 +34,7 @@ A **Vision Language Model (VLM)** combines computer vision with natural language
 
 ### Why VLMs and Not CNN-Based Models for Physical AI?
 
-Traditional CNN-based object detection models like **YOLO** — they output bounding boxes or class labels. A CNN-based system knows *"there's a cup"* but not *"the cup is too close to the edge and might fall."*
+Traditional CNN-based object detection models output bounding boxes or class labels. A CNN-based system knows *"there's a cup"* but not *"the cup is too close to the edge and might fall."*
 
 **VLMs think.** They reason about context, spatial relationships, and consequences:
 
@@ -147,22 +147,19 @@ How do we feed continuous video to a VLM and get real-time responses?
 
 ## Live VLM WebUI — See the World in Real-Time
 
-**Live VLM WebUI** solves this. It uses WebRTC to stream your camera feed directly to the VLM, analyzing frames continuously and responding in real-time.
+[**Live VLM WebUI**](https://github.com/NVIDIA-AI-IOT/live-vlm-webui) solves this. It uses WebRTC to stream your camera feed directly to the VLM, analyzing frames continuously and responding in real-time.
 
 ![Live VLM WebUI Interface](https://github.com/NVIDIA-AI-IOT/live-vlm-webui/raw/main/docs/images/chrome_app-running_light-theme.jpg)
 
-### Start Live VLM WebUI
+### Download and Start Live VLM WebUI
 
-Keep vLLM running in your first terminal. In a **new terminal**, start Live VLM WebUI:
+Keep vLLM running in your first terminal. In a **new terminal**, clone the repository and start the container:
 
 ```bash
+git clone https://github.com/NVIDIA-AI-IOT/live-vlm-webui.git ~/live-vlm-webui
 cd ~/live-vlm-webui
 ./scripts/start_container.sh
 ```
-
-<Note title="📦 Pre-installed">
-  The Live VLM WebUI repository is already cloned on your Jetson Thor.
-</Note>
 
 ### Access the Interface
 
