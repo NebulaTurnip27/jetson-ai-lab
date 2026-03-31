@@ -1,38 +1,35 @@
 ---
 title: "Fine-tune LLMs on Jetson"
-description: "Learn how to fine-tune large language models directly on Jetson using PyTorch and Hugging Face TRL. Covers full SFT for Qwen2.5 3B and LoRA for Qwen2.5 7B."
+description: "Learn how to fine-tune large language models directly on Jetson using PyTorch and Hugging Face TRL. Covers Full SFT (4B), LoRA (9B), and QLoRA (27B)."
 category: "Model Optimization"
 section: "Fine-tuning"
 order: 1
-tags: ["fine-tuning", "LoRA", "SFT", "Qwen", "PyTorch", "TRL", "Jetson Thor", "training"]
+tags: ["fine-tuning", "LoRA", "QLoRA", "SFT", "Qwen", "PyTorch", "TRL", "Jetson Thor", "training"]
 featured: false
 isNew: true
 ---
+
+import Tabs from '../../../components/Tabs.astro';
 
 # Fine-tune LLMs on Jetson
 
 Fine-tuning lets you customize a pre-trained LLM on your own data so it becomes better at a specific task — like following domain-specific instructions, answering questions in a particular style, or understanding specialized vocabulary.
 
-Running fine-tuning directly on Jetson means your data never leaves the device: no cloud uploads, no API calls, no latency. This is especially valuable for sensitive or proprietary datasets.
-
-This tutorial covers two approaches:
-
-- **Full SFT** — fine-tune all parameters of Qwen2.5 3B
-- **LoRA** — fine-tune only lightweight adapter layers on Qwen2.5 7B (uses far less memory)
 
 ## Prerequisites
 
-**Supported Devices:**
-- Jetson AGX Thor (128GB)
+| Requirement | Details |
+|-------------|---------|
+| **Device** | Jetson AGX Thor (128GB) |
+| **Software** | JetPack 7.x (R38) or later, Docker with NVIDIA runtime |
+| **Account** | [Hugging Face](https://huggingface.co/join) (free) — Qwen models are openly available, no license acceptance required |
 
-**Software:**
-- JetPack 6.x (R36) or later
-- Docker with NVIDIA runtime
+<div class="admonition warning">
+<p class="admonition-title">⚠️ Jetson Thor Unified Memory</p>
+<p>Jetson Thor <strong>shares its 128 GB memory between CPU and GPU</strong>. The OS, desktop environment, and background processes typically consume 4–6 GB, leaving <strong>~115 GB available</strong> for training. All default configurations in this tutorial are tuned to stay well within this limit. If you increase batch size, sequence length, or use a larger model, monitor memory with <code>tegrastats</code> or <a href="https://github.com/rbonghi/jetson_stats">jtop</a> to avoid hitting the system OOM killer.</p>
+</div>
 
-**Accounts:**
-- [Hugging Face account](https://huggingface.co/join) (free) — Qwen models are openly available (Apache 2.0), no license acceptance required
-
-## What Works on Which Platform
+## Which Method Should I Use?
 
 <div style="overflow-x: auto; margin: 1.5rem 0;">
 <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
@@ -40,20 +37,27 @@ This tutorial covers two approaches:
 <tr style="background: #e2e8f0; color: #1e293b;">
 <th style="padding: 12px 16px; text-align: left; font-weight: 600;">Method</th>
 <th style="padding: 12px 16px; text-align: left; font-weight: 600;">Model</th>
-<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Jetson Thor (128GB)</th>
+<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Measured Memory</th>
+<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Training Time</th>
+<th style="padding: 12px 16px; text-align: left; font-weight: 600;">Best For</th>
 </tr>
 </thead>
 <tbody>
-<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">Full SFT</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen2.5 3B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">batch=4–8</td></tr>
-<tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">LoRA</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen2.5 7B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">batch=4–8</td></tr>
-<tr style="background: #f8fafc;"><td style="padding: 12px 16px; font-weight: 500;">Full SFT</td><td style="padding: 12px 16px;">7B+ models</td><td style="padding: 12px 16px;">Possible (batch=2)</td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">Full SFT</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 4B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~42 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~5 min</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Maximum quality</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">LoRA</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 9B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~50 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~3.5 min</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Good balance of quality and efficiency</td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; font-weight: 500;">QLoRA (4-bit)</td><td style="padding: 12px 16px;">Qwen3.5 27B</td><td style="padding: 12px 16px;">~28 GB</td><td style="padding: 12px 16px;">~10 min</td><td style="padding: 12px 16px;">Largest models with least memory</td></tr>
 </tbody>
 </table>
 </div>
 
 <div class="admonition tip">
-<p class="admonition-title">💡 Full SFT vs LoRA</p>
-<p><strong>Full SFT</strong> updates every parameter in the model — more expressive but needs significantly more GPU memory for optimizer states. <strong>LoRA</strong> freezes the base model and trains small adapter matrices (typically 1–2% of parameters), using a fraction of the memory.</p>
+<p class="admonition-title">💡 How to choose</p>
+<ul>
+<li><strong>Full SFT</strong> updates every parameter — maximum expressiveness, but only practical for models up to ~4–9B on Thor.</li>
+<li><strong>LoRA</strong> freezes the base model and trains small adapter matrices (~1–2% of parameters). Uses bf16 weights, works well up to ~14B.</li>
+<li><strong>QLoRA</strong> combines 4-bit quantization with LoRA — loads the model in 4-bit to save memory, trains the same small adapters.</li>
+</ul>
+<p>All three methods produce models in standard Hugging Face SafeTensors format that can be deployed with vLLM, Ollama, llama.cpp, or TensorRT-LLM.</p>
 </div>
 
 ## Environment Setup
@@ -61,17 +65,21 @@ This tutorial covers two approaches:
 ### Step 1: Pull the PyTorch Container
 
 ```bash
-docker pull nvcr.io/nvidia/pytorch:26.01-py3
+docker pull nvcr.io/nvidia/pytorch:25.11-py3
 ```
 
 ### Step 2: Launch the Container
 
+Navigate to the desired directory first, then launch the container — `$(pwd)` mounts your current directory as `/workspace`:
+
 ```bash
+cd ~/Desktop/train/finetune
+
 docker run --runtime nvidia -it --rm --ipc=host \
   -v $HOME/.cache/huggingface:/root/.cache/huggingface \
   -v $(pwd):/workspace \
   -w /workspace \
-  nvcr.io/nvidia/pytorch:26.01-py3
+  nvcr.io/nvidia/pytorch:25.11-py3
 ```
 
 ### Step 3: Install Dependencies
@@ -79,12 +87,12 @@ docker run --runtime nvidia -it --rm --ipc=host \
 Inside the container:
 
 ```bash
-pip install trl datasets accelerate peft
+pip install trl datasets accelerate peft bitsandbytes
 ```
 
 ### Step 4: Authenticate with Hugging Face (Optional)
 
-Qwen models are openly available under the Apache 2.0 license and do not require authentication. This step is only needed if you use a gated model (e.g. Meta Llama) or experience rate-limiting during downloads.
+Qwen models are openly available and do not require authentication. This step is only needed if you use a gated model (e.g. Meta Llama) or experience rate-limiting during large downloads (the 27B QLoRA model is ~43 GB).
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
@@ -97,11 +105,12 @@ Replace `hf_your_token_here` with your actual token from [huggingface.co/setting
 ```bash
 wget https://www.jetson-ai-lab.com/code-samples/finetune/full_sft_finetuning.py
 wget https://www.jetson-ai-lab.com/code-samples/finetune/lora_finetuning.py
+wget https://www.jetson-ai-lab.com/code-samples/finetune/qlora_finetuning.py
 ```
 
 ## Training Dataset
 
-Both scripts use the [tatsu-lab/alpaca](https://huggingface.co/datasets/tatsu-lab/alpaca) dataset by default — a collection of ~52,000 instruction-following examples in this format:
+All three scripts use the [tatsu-lab/alpaca](https://huggingface.co/datasets/tatsu-lab/alpaca) dataset by default — a collection of ~52,000 instruction-following examples in this format:
 
 | Field | Description | Example |
 |-------|-------------|---------|
@@ -147,7 +156,7 @@ To fine-tune on your own data, prepare a JSON Lines (`.jsonl`) or JSON file with
 ]
 ```
 
-Then modify the `get_alpaca_dataset()` function in any of the scripts to load your file instead:
+Then modify the `get_alpaca_dataset()` function in whichever script you're using to load your file instead:
 
 ```python
 def get_custom_dataset(eos_token, data_path):
@@ -173,9 +182,14 @@ def get_custom_dataset(eos_token, data_path):
 </ul>
 </div>
 
-## Option 1: Full SFT (Qwen2.5 3B)
+## Option 1: Full SFT (Qwen3.5 4B)
 
 Full Supervised Fine-Tuning updates every parameter in the model. This gives maximum flexibility but uses more memory since the optimizer must store states for all parameters.
+
+<div class="admonition warning">
+<p class="admonition-title">⚠️ Jetson Thor Unified Memory</p>
+<p>Jetson Thor shares its 128 GB memory between CPU and GPU. The OS, desktop, and other processes typically use 4–6 GB, so your training process should stay under ~115 GB to avoid the system OOM killer.</p>
+</div>
 
 ```bash
 python full_sft_finetuning.py --output_dir ./finetuned_model
@@ -187,13 +201,15 @@ You should see output like:
 ============================================================
 TRAINING COMPLETED
 ============================================================
-Training runtime: 89.22 seconds
-Samples per second: 5.60
-Steps per second: 0.71
-Train loss: 1.1702
+Training runtime: 298.18 seconds
+Samples per second: 1.68
+Steps per second: 0.21
+Train loss: 1.1620
 ============================================================
 
 Saving model to ./finetuned_model...
+Writing model shards: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:09<00:00,  9.94s/it]
+Model saved successfully!
 ```
 
 <details class="nv-details">
@@ -202,21 +218,53 @@ Saving model to ./finetuned_model...
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model_name` | `Qwen/Qwen2.5-3B-Instruct` | Model to fine-tune |
-| `--batch_size` | 8 | Per-device batch size |
-| `--gradient_accumulation_steps` | 1 | Gradient accumulation |
+| `--model_name` | `Qwen/Qwen3.5-4B` | Model to fine-tune |
+| `--batch_size` | 4 | Per-device batch size |
+| `--gradient_accumulation_steps` | 2 | Gradient accumulation |
 | `--seq_length` | 2048 | Max sequence length |
 | `--num_epochs` | 1 | Training epochs |
 | `--learning_rate` | 5e-5 | Learning rate |
 | `--dataset_size` | 500 | Samples to use |
-| `--gradient_checkpointing` | off | Save memory at cost of speed |
+| `--gradient_checkpointing` | on | Save memory at cost of speed |
 | `--use_torch_compile` | off | torch.compile (adds warmup time) |
 | `--output_dir` | — | Where to save model |
 
 </div>
 </details>
 
-## Option 2: LoRA (Qwen2.5 7B)
+<div class="admonition tip">
+<p class="admonition-title">💡 Understanding Batch Size and Memory</p>
+<p>Two parameters control how many samples the model processes per optimizer update:</p>
+<ul>
+<li><code>--batch_size</code> — samples processed at once on the GPU (directly affects memory usage)</li>
+<li><code>--gradient_accumulation_steps</code> — how many mini-batches to accumulate before updating weights</li>
+</ul>
+<p>The <strong>effective batch size</strong> = <code>batch_size × gradient_accumulation_steps</code>. Training quality depends on the effective batch size, not the per-device batch size. So you can lower <code>--batch_size</code> to save memory and raise <code>--gradient_accumulation_steps</code> to compensate — the model learns identically, just processes fewer samples per forward pass.</p>
+
+<div style="overflow-x: auto; margin: 1rem 0;">
+<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+<thead>
+<tr style="background: #e2e8f0; color: #1e293b;">
+<th style="padding: 10px 14px; text-align: left;">batch_size</th>
+<th style="padding: 10px 14px; text-align: left;">accum_steps</th>
+<th style="padding: 10px 14px; text-align: left;">Effective Batch</th>
+<th style="padding: 10px 14px; text-align: left;">Memory (Qwen3.5 4B Full SFT)</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background: #f8fafc;"><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">8</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">1</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">8</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">~87 GB (may OOM with desktop running)</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;"><strong>4</strong></td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;"><strong>2</strong></td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;"><strong>8</strong></td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;"><strong>~42 GB (default, safe)</strong></td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">2</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">4</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">8</td><td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0;">~25–30 GB (conservative)</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 10px 14px;">1</td><td style="padding: 10px 14px;">8</td><td style="padding: 10px 14px;">8</td><td style="padding: 10px 14px;">~18–22 GB (minimum)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>To override the defaults, pass both flags together:</p>
+<pre><code>python full_sft_finetuning.py --batch_size 2 --gradient_accumulation_steps 4 --output_dir ./finetuned_model</code></pre>
+</div>
+
+## Option 2: LoRA (Qwen3.5 9B)
 
 LoRA (Low-Rank Adaptation) freezes the base model and trains small adapter matrices injected into the attention and MLP layers. Only ~1–2% of parameters are trainable, which dramatically reduces memory usage and makes it possible to fine-tune larger models on Jetson.
 
@@ -228,19 +276,12 @@ The output will show how few parameters are actually trained:
 
 ```
 ============================================================
-QWEN2.5 7B LoRA FINE-TUNING CONFIGURATION
-============================================================
-Model: Qwen/Qwen2.5-7B-Instruct
-Training mode: LoRA (rank=8, alpha=16)
-.....
-.....
-============================================================
 TRAINING COMPLETED
 ============================================================
-Training runtime: 90.28 seconds
-Samples per second: 5.67
-Steps per second: 0.71
-Train loss: 1.0364
+Training runtime: 215.79 seconds
+Samples per second: 2.37
+Steps per second: 0.30
+Train loss: 0.9587
 ============================================================
 
 Saving LoRA adapter to ./lora_adapter...
@@ -253,7 +294,7 @@ LoRA adapter saved successfully!
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model_name` | `Qwen/Qwen2.5-7B-Instruct` | Model to fine-tune |
+| `--model_name` | `Qwen/Qwen3.5-9B` | Model to fine-tune |
 | `--batch_size` | 4 | Per-device batch size |
 | `--gradient_accumulation_steps` | 2 | Gradient accumulation |
 | `--seq_length` | 2048 | Max sequence length |
@@ -269,28 +310,97 @@ LoRA adapter saved successfully!
 </div>
 </details>
 
+## Option 3: QLoRA (Qwen3.5 27B)
+
+QLoRA (Quantized LoRA) loads the base model in 4-bit precision and trains LoRA adapters on top. This dramatically reduces memory — fine-tuning a 27B model uses less memory than Full SFT on a 4B model.
+
+```bash
+python qlora_finetuning.py --output_dir ./qlora_adapter
+```
+
+You should see output like:
+
+```
+============================================================
+QLoRA FINE-TUNING CONFIGURATION
+============================================================
+Model: Qwen/Qwen3.5-27B
+Training mode: QLoRA (4-bit, rank=16, alpha=32)
+Batch size: 2
+Gradient accumulation: 4
+Effective batch size: 8
+.....
+============================================================
+TRAINING COMPLETED
+============================================================
+Training runtime: 618.94 seconds
+Samples per second: 0.83
+Steps per second: 0.10
+Train loss: 0.8245
+============================================================
+
+Saving QLoRA adapter to ./qlora_adapter...
+QLoRA adapter saved successfully!
+```
+
+<details class="nv-details">
+<summary>Full list of configuration options</summary>
+<div class="nv-details-content">
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--model_name` | `Qwen/Qwen3.5-27B` | Model to fine-tune |
+| `--batch_size` | 2 | Per-device batch size |
+| `--gradient_accumulation_steps` | 4 | Gradient accumulation |
+| `--seq_length` | 2048 | Max sequence length |
+| `--num_epochs` | 1 | Training epochs |
+| `--learning_rate` | 2e-4 | Learning rate |
+| `--lora_rank` | 16 | LoRA rank (higher = more params) |
+| `--lora_alpha` | 32 | LoRA scaling factor |
+| `--dataset_size` | 512 | Samples to use |
+| `--gradient_checkpointing` | on | Save memory at cost of speed |
+| `--output_dir` | — | Where to save QLoRA adapter |
+
+</div>
+</details>
+
 ## Deploying Your Fine-tuned Model
 
-After fine-tuning, you have a model saved as safetensors that you can serve for inference.
+After fine-tuning, you have model weights saved in Hugging Face SafeTensors format.
 
 If you used **Full SFT**, your `./finetuned_model` is already a complete model — ready to deploy as-is.
 
-If you used **LoRA**, the output directory contains only adapter weights (~10–50MB). Merge the adapter into the base model first to produce a standalone model:
+If you used **LoRA** or **QLoRA**, the output directory contains only adapter weights. Merge the adapter into the base model to produce a standalone model:
 
 ```bash
+# For LoRA (Qwen3.5 9B)
 python -c "
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-base = AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-7B-Instruct', torch_dtype='auto')
+base = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3.5-9B', torch_dtype='auto', trust_remote_code=True)
 model = PeftModel.from_pretrained(base, './lora_adapter')
 merged = model.merge_and_unload()
 merged.save_pretrained('./merged_model')
-AutoTokenizer.from_pretrained('Qwen/Qwen2.5-7B-Instruct').save_pretrained('./merged_model')
+AutoTokenizer.from_pretrained('Qwen/Qwen3.5-9B').save_pretrained('./merged_model')
 print('Merged model saved to ./merged_model')
 "
 ```
 
-Once you have a complete model (either `./finetuned_model` or `./merged_model`), you can serve it with vLLM, Ollama, llama.cpp, or TensorRT-LLM. For a full walkthrough on deploying and serving models on Jetson, see the [Introduction to GenAI on Jetson: How to Run LLMs and VLMs](https://www.jetson-ai-lab.com/tutorials/genai-on-jetson-llms-vlms/) tutorial.
+```bash
+# For QLoRA (Qwen3.5 27B)
+python -c "
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+base = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3.5-27B', torch_dtype='auto', trust_remote_code=True)
+model = PeftModel.from_pretrained(base, './qlora_adapter')
+merged = model.merge_and_unload()
+merged.save_pretrained('./merged_model_27b')
+AutoTokenizer.from_pretrained('Qwen/Qwen3.5-27B').save_pretrained('./merged_model_27b')
+print('Merged model saved to ./merged_model_27b')
+"
+```
+
+Once you have a complete model, you can serve it with vLLM, Ollama, llama.cpp, or TensorRT-LLM. For a full walkthrough on deploying and serving models on Jetson, see the [Introduction to GenAI on Jetson: How to Run LLMs and VLMs](https://www.jetson-ai-lab.com/tutorials/genai-on-jetson-llms-vlms/) tutorial.
 
 ## Troubleshooting
 
@@ -298,13 +408,16 @@ Once you have a complete model (either `./finetuned_model` or `./merged_model`),
 <summary>Out of memory (CUDA OOM)</summary>
 <div class="nv-details-content">
 
-If you see `CUDA out of memory` errors, try these steps in order:
+Jetson Thor uses unified memory — the 128 GB is shared between CPU and GPU. If the training process plus the OS exceed available memory, the Linux OOM killer will terminate processes (including Cursor or the training itself).
 
-1. Reduce `--batch_size` to 1 or 2
-2. Enable `--gradient_checkpointing`
-3. Increase `--gradient_accumulation_steps` to keep the effective batch size reasonable
-4. Reduce `--seq_length` to 1024 or 512
-5. Switch from Full SFT to LoRA if you haven't already
+Default memory usage: Full SFT ~42 GB, LoRA ~50 GB, QLoRA ~28 GB. If you still hit OOM:
+
+1. Reduce `--batch_size` (to 2 or 1)
+2. Increase `--gradient_accumulation_steps` proportionally to keep the effective batch size
+3. Reduce `--seq_length` to 1024 or 512
+4. Switch to a more memory-efficient method: Full SFT → LoRA → QLoRA
+5. Close memory-heavy desktop apps (browsers, IDEs) before training
+6. For QLoRA, models larger than ~27B may OOM during the weight loading phase (the bf16→4bit conversion requires temporarily holding the original weights in RAM)
 
 </div>
 </details>
@@ -313,7 +426,7 @@ If you see `CUDA out of memory` errors, try these steps in order:
 <summary>Hugging Face authentication errors</summary>
 <div class="nv-details-content">
 
-Qwen2.5 models are openly available under the Apache 2.0 license — no gating or license acceptance required. If you still encounter download issues:
+Qwen models are openly available — no gating or license acceptance required. If you still encounter download issues:
 
 1. Create a [Hugging Face account](https://huggingface.co/join)
 2. Create an [access token](https://huggingface.co/settings/tokens)
@@ -331,8 +444,7 @@ If the fine-tuned model responses look similar to the base model:
 - Use more training data: `--dataset_size 2000` or higher — this has the biggest impact
 - Train for more epochs: `--num_epochs 3` to `5` with a larger dataset
 - Lower the learning rate if training loss spikes: try `--learning_rate 1e-5`
-- The base model (Instruct variant) is already instruction-tuned on similar data — try a base (non-Instruct) model like `Qwen/Qwen2.5-3B` instead, which shows more noticeable changes after fine-tuning
-- Use your own domain-specific dataset rather than Alpaca — the model has likely already seen similar instruction-following data during pre-training
+- Use your own domain-specific dataset rather than Alpaca — these models have likely already seen similar instruction-following data during pre-training
 
 </div>
 </details>
@@ -341,6 +453,7 @@ If the fine-tuned model responses look similar to the base model:
 
 - [Hugging Face TRL Documentation](https://huggingface.co/docs/trl/)
 - [PEFT / LoRA Documentation](https://huggingface.co/docs/peft/)
+- [bitsandbytes Documentation](https://huggingface.co/docs/bitsandbytes/)
 - [Alpaca Dataset](https://huggingface.co/datasets/tatsu-lab/alpaca)
-- [Qwen2.5 Model Collection](https://huggingface.co/collections/Qwen/qwen25-66e81a666513e518adb90d9e)
+- [Qwen Models](https://huggingface.co/Qwen)
 - [DGX Spark PyTorch Fine-tuning Playbooks](https://github.com/NVIDIA/dgx-spark-playbooks/tree/main/nvidia/pytorch-fine-tune)

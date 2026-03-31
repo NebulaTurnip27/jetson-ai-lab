@@ -50,7 +50,7 @@ def main(args):
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         torch_dtype=getattr(torch, args.dtype),
-        device_map="auto",
+        device_map="cuda",
         trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
@@ -147,28 +147,27 @@ def main(args):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Qwen2.5 3B Full Fine-tuning (SFT)")
+    parser = argparse.ArgumentParser(description="Qwen3.5 4B Full Fine-tuning (SFT)")
 
-    # Model configuration
-    parser.add_argument("--model_name", type=str, default="Qwen/Qwen2.5-3B-Instruct",
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen3.5-4B",
                         help="Model name or path")
     parser.add_argument("--dtype", type=str, default="bfloat16",
                         choices=["float32", "float16", "bfloat16"],
                         help="Model dtype")
 
     # Training configuration
-    parser.add_argument("--batch_size", type=int, default=8,
+    parser.add_argument("--batch_size", type=int, default=4,
                         help="Per device training batch size")
     parser.add_argument("--seq_length", type=int, default=2048,
                         help="Maximum sequence length")
     parser.add_argument("--num_epochs", type=int, default=1,
                         help="Number of training epochs")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
                         help="Gradient accumulation steps")
     parser.add_argument("--learning_rate", type=float, default=5e-5,
                         help="Learning rate")
-    parser.add_argument("--gradient_checkpointing", action="store_true",
-                        help="Enable gradient checkpointing to save memory")
+    parser.add_argument("--gradient_checkpointing", action="store_true", default=True,
+                        help="Enable gradient checkpointing to save memory (on by default)")
 
     # Dataset configuration
     parser.add_argument("--dataset_size", type=int, default=500,
@@ -192,7 +191,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     print(f"\n{'='*60}")
-    print("QWEN2.5 3B FULL FINE-TUNING CONFIGURATION")
+    print("QWEN3.5 4B FULL FINE-TUNING CONFIGURATION")
     print(f"{'='*60}")
     print(f"Model: {args.model_name}")
     print(f"Training mode: Full SFT ")

@@ -14,16 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Adapted from DGX Spark Playbooks:
-# https://github.com/NVIDIA/dgx-spark-playbooks/tree/main/nvidia/pytorch-fine-tune
-#
 
 import torch
 import argparse
 from datasets import load_dataset
 from trl import SFTConfig, SFTTrainer
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import get_peft_model, LoraConfig, TaskType
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import get_peft_model, LoraConfig, TaskType, prepare_model_for_kbit_training
 
 
 ALPACA_PROMPT_TEMPLATE = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
@@ -48,14 +45,24 @@ def get_alpaca_dataset(eos_token, dataset_size=512):
 
 def main(args):
     print(f"Loading model: {args.model_name}")
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=getattr(torch, args.dtype),
+        bnb_4bit_use_double_quant=True,
+    )
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
-        torch_dtype=getattr(torch, args.dtype),
+        quantization_config=bnb_config,
         device_map="cuda",
-        trust_remote_code=True
+        trust_remote_code=True,
     )
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
+
+    model = prepare_model_for_kbit_training(model)
 
     peft_config = LoraConfig(
         r=args.lora_rank,
@@ -69,7 +76,7 @@ def main(args):
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total parameters: {total_params:,}")
-    print(f"Trainable parameters: {trainable_params:,} ({100 * trainable_params / total_params:.2f}% - LoRA)")
+    print(f"Trainable parameters: {trainable_params:,} ({100 * trainable_params / total_params:.2f}% - QLoRA)")
 
     print(f"Loading dataset with {args.dataset_size} samples...")
     dataset = get_alpaca_dataset(tokenizer.eos_token, args.dataset_size)
@@ -77,16 +84,14 @@ def main(args):
     use_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
     use_fp16 = torch.cuda.is_available() and not use_bf16
 
-    if not torch.cuda.is_available():
-        print("WARNING: CUDA not available! Training will be very slow on CPU.")
-    elif use_bf16:
-        print("Using bfloat16 precision")
+    if use_bf16:
+        print("Using bfloat16 compute dtype")
     elif use_fp16:
-        print("Using float16 precision")
+        print("Using float16 compute dtype")
 
     config = {
         "per_device_train_batch_size": args.batch_size,
-        "num_train_epochs": 0.01,
+        "num_train_epochs": args.num_epochs,
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
         "learning_rate": args.learning_rate,
         "optim": "adamw_torch",
@@ -97,7 +102,7 @@ def main(args):
         "packing": False,
         "max_length": args.seq_length,
         "torch_compile": False,
-        "report_to": "none",
+        "report_to": "tensorboard",
         "logging_dir": args.log_dir,
         "logging_steps": args.logging_steps,
         "gradient_checkpointing": args.gradient_checkpointing,
@@ -105,21 +110,7 @@ def main(args):
         "fp16": use_fp16,
     }
 
-    if args.use_torch_compile:
-        print("Compiling model with torch.compile()...")
-        model = torch.compile(model)
-
-        print("Running warmup for torch.compile()...")
-        SFTTrainer(
-            model=model,
-            processing_class=tokenizer,
-            train_dataset=dataset,
-            args=SFTConfig(**config),
-        ).train()
-
-    print(f"\nStarting LoRA fine-tuning for {args.num_epochs} epoch(s)...")
-    config["num_train_epochs"] = args.num_epochs
-    config["report_to"] = "tensorboard"
+    print(f"\nStarting QLoRA fine-tuning for {args.num_epochs} epoch(s)...")
 
     trainer = SFTTrainer(
         model=model,
@@ -140,37 +131,37 @@ def main(args):
     print(f"{'='*60}\n")
 
     if args.output_dir:
-        print(f"Saving LoRA adapter to {args.output_dir}...")
+        print(f"Saving QLoRA adapter to {args.output_dir}...")
         model.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
-        print("LoRA adapter saved successfully!")
+        print("QLoRA adapter saved successfully!")
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Qwen3.5 9B Fine-tuning with LoRA (SFT)")
+    parser = argparse.ArgumentParser(description="QLoRA Fine-tuning (4-bit quantized LoRA)")
 
-    parser.add_argument("--model_name", type=str, default="Qwen/Qwen3.5-9B",
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen3.5-27B",
                         help="Model name or path")
     parser.add_argument("--dtype", type=str, default="bfloat16",
                         choices=["float32", "float16", "bfloat16"],
-                        help="Model dtype")
+                        help="Compute dtype for 4-bit quantization")
 
-    parser.add_argument("--batch_size", type=int, default=4,
+    parser.add_argument("--batch_size", type=int, default=2,
                         help="Per device training batch size")
     parser.add_argument("--seq_length", type=int, default=2048,
                         help="Maximum sequence length")
     parser.add_argument("--num_epochs", type=int, default=1,
                         help="Number of training epochs")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4,
                         help="Gradient accumulation steps")
-    parser.add_argument("--learning_rate", type=float, default=1e-4,
+    parser.add_argument("--learning_rate", type=float, default=2e-4,
                         help="Learning rate")
-    parser.add_argument("--gradient_checkpointing", action="store_true",
-                        help="Enable gradient checkpointing to save memory")
+    parser.add_argument("--gradient_checkpointing", action="store_true", default=True,
+                        help="Enable gradient checkpointing (on by default)")
 
-    parser.add_argument("--lora_rank", type=int, default=8,
-                        help="LoRA rank (higher = more parameters, more memory)")
-    parser.add_argument("--lora_alpha", type=int, default=16,
+    parser.add_argument("--lora_rank", type=int, default=16,
+                        help="LoRA rank (higher = more parameters)")
+    parser.add_argument("--lora_alpha", type=int, default=32,
                         help="LoRA alpha (scaling factor)")
 
     parser.add_argument("--dataset_size", type=int, default=512,
@@ -181,10 +172,8 @@ def parse_arguments():
     parser.add_argument("--log_dir", type=str, default="logs",
                         help="Directory for logs")
 
-    parser.add_argument("--use_torch_compile", action="store_true",
-                        help="Use torch.compile() for faster training (adds warmup overhead)")
     parser.add_argument("--output_dir", type=str, default=None,
-                        help="Directory to save the fine-tuned LoRA adapter")
+                        help="Directory to save the QLoRA adapter")
 
     return parser.parse_args()
 
@@ -192,10 +181,10 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     print(f"\n{'='*60}")
-    print("QWEN3.5 9B LoRA FINE-TUNING CONFIGURATION")
+    print("QLoRA FINE-TUNING CONFIGURATION")
     print(f"{'='*60}")
     print(f"Model: {args.model_name}")
-    print(f"Training mode: LoRA (rank={args.lora_rank}, alpha={args.lora_alpha})")
+    print(f"Training mode: QLoRA (4-bit, rank={args.lora_rank}, alpha={args.lora_alpha})")
     print(f"Batch size: {args.batch_size}")
     print(f"Gradient accumulation: {args.gradient_accumulation_steps}")
     print(f"Effective batch size: {args.batch_size * args.gradient_accumulation_steps}")
@@ -204,7 +193,6 @@ if __name__ == "__main__":
     print(f"Learning rate: {args.learning_rate}")
     print(f"Dataset size: {args.dataset_size}")
     print(f"Gradient checkpointing: {args.gradient_checkpointing}")
-    print(f"Torch compile: {args.use_torch_compile}")
     print(f"{'='*60}\n")
 
     main(args)
