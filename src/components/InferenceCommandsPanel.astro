@@ -1,0 +1,618 @@
+---
+import {
+	applyMatrixModuleDisabledFlags,
+	combineInstallRunForModule,
+	visibleModulesForEngines,
+	type SupportedEngineEntry,
+} from '../lib/inferenceCommands';
+
+interface Props {
+	engines: SupportedEngineEntry[];
+	sectionClass?: string;
+	needsHfToken?: boolean;
+	/** Model collection slug — used for GA4 copy events */
+	modelSlug?: string;
+	/** From model front matter `matrix_modules_disabled` */
+	matrixModulesDisabled?: string[];
+}
+
+const {
+	engines: sortedEngines,
+	sectionClass = '',
+	needsHfToken = false,
+	modelSlug = '',
+	matrixModulesDisabled,
+} = Astro.props as Props;
+
+const visibleModules = applyMatrixModuleDisabledFlags(
+	visibleModulesForEngines(sortedEngines),
+	matrixModulesDisabled
+);
+const defaultModuleId =
+	visibleModules.find((m) => m.disabled !== true)?.id ?? visibleModules[0]?.id ?? '';
+const _firstEnabledModIdx = visibleModules.findIndex((m) => m.disabled !== true);
+const firstEnabledModuleIndex = _firstEnabledModIdx >= 0 ? _firstEnabledModIdx : 0;
+const defaultEngineName = sortedEngines[0]?.engine ?? '';
+
+function engineIsVllm(name: string): boolean {
+	return name.toLowerCase().replace(/[.\-_]/g, '') === 'vllm';
+}
+
+const hasVllmEngine = sortedEngines.some((e) => engineIsVllm(e.engine));
+const showAdvancedConfiguration = needsHfToken || hasVllmEngine;
+
+const commandsRecord: Record<string, string> = {};
+for (const mod of visibleModules) {
+	for (const eng of sortedEngines) {
+		commandsRecord[`${mod.id}::${eng.engine}`] = combineInstallRunForModule(eng, mod);
+	}
+}
+
+const panelConfigJson = JSON.stringify({
+	commands: commandsRecord,
+	modules: visibleModules.map((m) => ({
+		id: m.id,
+		label: m.label,
+		platformKey: m.platformKey,
+	})),
+	needsHfToken,
+	defaultModule: defaultModuleId,
+	defaultEngine: defaultEngineName,
+	modelSlug,
+});
+---
+
+{
+	sortedEngines.length > 0 && visibleModules.length > 0 && (
+		<section
+			id="serve-model"
+			class:list={['py-16 bg-nvidia-gray-50 border-b border-nvidia-gray-200 scroll-mt-20', sectionClass]}
+		>
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-nvidia-black mb-2">Serve this model on Jetson</h2>
+					<p class="text-sm text-nvidia-gray-600 max-w-3xl">
+						Choose module, then engine and optional parameters on the left, then copy the <strong>server</strong> command on
+						the right. Long lines wrap automatically. Nothing is stored.
+					</p>
+				</div>
+
+				<script
+					type="application/json"
+					id="inference-panel-config"
+					set:html={panelConfigJson}
+				/>
+
+				<div
+					class="bg-white rounded-xl border border-nvidia-gray-200 shadow-sm overflow-hidden"
+					id="inference-matrix-panel"
+					role="tabpanel"
+					aria-label="Commands for selected module and engine"
+				>
+					<div
+						class="inference-matrix-module-bar flex overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white w-full"
+						role="tablist"
+						aria-label="Jetson module"
+					>
+						{visibleModules.map((mod, index) => (
+							<button
+								type="button"
+								role="tab"
+								aria-selected={
+									mod.disabled
+										? 'false'
+										: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
+											? 'true'
+											: 'false'
+								}
+								disabled={mod.disabled === true}
+								id={`inference-tab-${mod.id}`}
+								class:list={[
+									'module-tab-btn group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
+									'px-4 sm:px-5 py-2.5 border-b-[3px] pb-3 -mb-px',
+									mod.disabled
+										? 'cursor-not-allowed opacity-40 text-nvidia-gray-400 bg-transparent border-b-transparent pointer-events-none'
+										: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
+											? 'cursor-pointer bg-nvidia-gray-50/90 border-b-nvidia-green text-nvidia-green'
+											: 'cursor-pointer bg-transparent border-b-transparent text-gray-500 hover:bg-nvidia-gray-50/80 hover:text-nvidia-black hover:border-b-gray-300',
+								]}
+								data-module={mod.id}
+								title={mod.label}
+							>
+								{mod.iconSrc ? (
+									<img
+										src={mod.iconSrc}
+										alt=""
+										class="h-16 w-16 sm:h-24 sm:w-24 object-contain pointer-events-none shrink-0"
+										width="96"
+										height="96"
+										loading="lazy"
+										decoding="async"
+									/>
+								) : (
+									<div
+										class="h-16 w-16 sm:h-24 sm:w-24 rounded-lg bg-gradient-to-br from-nvidia-gray-100 to-nvidia-gray-200 border border-dashed border-nvidia-gray-400 flex items-center justify-center pointer-events-none shrink-0"
+										aria-hidden="true"
+									>
+										<span class="text-xs font-bold text-nvidia-gray-500 leading-tight text-center px-1">
+											ISO
+										</span>
+									</div>
+								)}
+								<div class="min-w-0 flex-1 text-left flex flex-col gap-0.5">
+									<span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80">
+										{mod.tabKicker}
+									</span>
+									<span class="text-xs sm:text-sm font-bold leading-snug">{mod.tabTitleBold}</span>
+									{
+										mod.tabSubtitleGray && (
+											<span class="text-[10px] sm:text-[11px] font-normal text-nvidia-gray-500 leading-snug">
+												{mod.tabSubtitleGray}
+											</span>
+										)
+									}
+								</div>
+							</button>
+						))}
+					</div>
+
+					<div class="flex flex-col lg:flex-row min-h-0 min-w-0 items-stretch">
+						<aside class="w-full lg:w-[min(100%,18rem)] xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 bg-nvidia-gray-50/80 min-w-0 flex flex-col">
+							<h3 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider px-4 pt-4 lg:pt-5 lg:px-4 mb-2 lg:mb-3">
+								Inference Engine
+							</h3>
+							<div
+								class="inference-matrix-engine-bar flex flex-row lg:flex-col overflow-x-auto overflow-y-hidden lg:overflow-visible overscroll-x-contain snap-x lg:snap-none divide-x divide-nvidia-gray-200 lg:divide-x-0 lg:divide-y lg:divide-nvidia-gray-200 px-2 sm:px-3 pb-3 lg:pb-4 lg:px-0 lg:mx-3 border-b border-nvidia-gray-100/80"
+								role="tablist"
+								aria-label="Inference engine"
+							>
+								{sortedEngines.map((eng, index) => (
+									<button
+										type="button"
+										class:list={[
+											'engine-rail-btn text-left transition-colors duration-200 shrink-0 lg:w-full min-w-[7rem] lg:min-w-0',
+											'px-3 sm:px-4 lg:px-0 lg:pl-3 lg:pr-2',
+											'border-b-[3px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:border-l-[3px] lg:py-2.5 lg:rounded-r-md',
+											'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-transparent disabled:text-nvidia-gray-400',
+											index === 0
+												? 'border-b-nvidia-green lg:border-l-nvidia-green text-nvidia-green lg:bg-white/80 cursor-pointer'
+												: 'border-b-transparent lg:border-l-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300 cursor-pointer',
+										]}
+										data-engine={eng.engine}
+									>
+										<span class="font-semibold text-sm block">{eng.engine}</span>
+										{eng.type && (
+											<span class="text-xs text-nvidia-gray-500 mt-0.5 block font-normal">{eng.type}</span>
+										)}
+									</button>
+								))}
+							</div>
+
+							{showAdvancedConfiguration && (
+								<div class="mt-auto border-t border-nvidia-gray-200 px-3 py-4 lg:px-4">
+									<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+										<h3 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider leading-tight">
+											Advanced
+										</h3>
+										<button
+											type="button"
+											id="inference-advanced-toggle"
+											class="text-[11px] font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-0.5 shrink-0"
+											aria-expanded="false"
+											aria-controls="inference-advanced-body"
+										>
+											<span data-inference-adv-toggle-text>Show</span>
+											<svg
+												data-inference-adv-toggle-icon
+												class="w-3 h-3 transition-transform duration-200 shrink-0"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												aria-hidden="true"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M19 9l-7 7-7-7"
+												/>
+											</svg>
+										</button>
+									</div>
+									<div id="inference-advanced-body" class="hidden space-y-4 pt-1">
+										<div class="grid grid-cols-1 gap-y-4">
+											{needsHfToken && (
+												<section id="inference-hf-section" class="hidden">
+													<h4 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider mb-1.5">
+														Authentication
+													</h4>
+													<label class="block text-xs font-medium text-nvidia-gray-700 mb-1">
+														Hugging Face Token
+														<span class="text-red-500 ml-0.5">*</span>
+													</label>
+													<input
+														id="inference-hf-token"
+														type="text"
+														placeholder="hf_..."
+														class="w-full bg-white border border-nvidia-gray-200 text-nvidia-black text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none placeholder:text-nvidia-gray-300 font-mono"
+													/>
+													<p class="text-[9px] text-nvidia-gray-400 mt-1 leading-snug">
+														Thor + HF_TOKEN models.{' '}
+														<a
+															href="https://huggingface.co/settings/tokens"
+															target="_blank"
+															rel="noopener noreferrer"
+															class="text-nvidia-green hover:underline"
+														>
+															Token
+														</a>
+														. Not stored.
+													</p>
+												</section>
+											)}
+
+											{hasVllmEngine && (
+												<section id="inference-vllm-section" class="hidden">
+													<h4 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider mb-1.5">
+														vLLM
+													</h4>
+													<p class="text-[10px] text-nvidia-gray-500 mb-2 leading-snug">
+														When engine is vLLM. Empty = YAML defaults.
+													</p>
+													<div class="space-y-3">
+														<div>
+															<label class="block text-[10px] font-medium text-nvidia-gray-600 mb-0.5">
+																Port
+															</label>
+															<input
+																id="inference-vllm-port"
+																type="number"
+																min="1024"
+																max="65535"
+																placeholder="8000"
+																class="w-full bg-white border border-nvidia-gray-200 rounded-lg px-2 py-1.5 text-xs focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300"
+															/>
+														</div>
+														<div>
+															<label class="block text-[10px] font-medium text-nvidia-gray-600 mb-0.5">
+																Max length
+															</label>
+															<input
+																id="inference-vllm-max-len"
+																type="number"
+																min="512"
+																max="131072"
+																step="512"
+																placeholder="32000"
+																class="w-full bg-white border border-nvidia-gray-200 rounded-lg px-2 py-1.5 text-xs focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300"
+															/>
+														</div>
+														<div>
+															<label class="block text-[10px] font-medium text-nvidia-gray-600 mb-0.5">
+																GPU mem util
+															</label>
+															<input
+																id="inference-vllm-gpu"
+																type="number"
+																min="0.1"
+																max="1.0"
+																step="0.05"
+																placeholder="0.9"
+																class="w-full bg-white border border-nvidia-gray-200 rounded-lg px-2 py-1.5 text-xs focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300"
+															/>
+														</div>
+														<button
+															type="button"
+															id="inference-vllm-reset"
+															class="text-[10px] text-nvidia-gray-500 hover:text-nvidia-black underline decoration-dotted"
+														>
+															Reset vLLM fields
+														</button>
+													</div>
+												</section>
+											)}
+										</div>
+									</div>
+								</div>
+							)}
+						</aside>
+
+						<div class="flex-1 min-w-0 w-full p-4 sm:p-6 bg-nvidia-gray-50/50 flex flex-col">
+							<div class="min-w-0 flex-1 flex flex-col w-full max-w-full">
+								<div class="flex items-start justify-between gap-3 min-w-0 shrink-0 mb-3">
+									<div class="min-w-0 flex-1">
+										<p class="text-xs font-semibold text-nvidia-gray-400 uppercase tracking-wide m-0">
+											Command
+										</p>
+										<p id="inference-command-subtitle" class="text-sm text-nvidia-gray-700 mt-1 break-words m-0">
+											<span class="font-medium text-nvidia-black" id="inference-command-mod-label" />
+											<span class="text-nvidia-gray-400 mx-1">·</span>
+											<span id="inference-command-eng-label" />
+										</p>
+									</div>
+									<button
+										type="button"
+										id="inference-matrix-copy-btn"
+										class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold shrink-0 disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-nvidia-gray-200 disabled:hover:text-nvidia-gray-700"
+										disabled
+									>
+										<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+										</svg>
+										<span data-inference-copy-label>Copy Command</span>
+									</button>
+								</div>
+
+								<p id="inference-command-empty" class="hidden text-nvidia-gray-500 italic text-center py-8">
+									No command for this module and engine in model data.
+								</p>
+
+								<div id="inference-command-block" class="relative min-w-0 w-full max-w-full flex-1 flex flex-col">
+									<div class="inference-matrix-code-wrap rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] flex-1 min-h-[8rem] w-full max-w-full">
+										<pre
+											class="text-sm font-mono text-slate-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 m-0 min-h-[8rem]"
+										><code id="inference-command-display" class="block w-full max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]" /></pre>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	)
+}
+
+<style is:global>
+	.inference-matrix-code-wrap {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-x: hidden;
+	}
+
+	/* Horizontal scrollers: avoid an unwanted vertical scrollbar in some browsers. */
+	.inference-matrix-module-bar,
+	.inference-matrix-engine-bar {
+		overflow-y: hidden;
+	}
+</style>
+
+<script>
+	import {
+		applyHfTokenToCommand,
+		applyVllmOverridesToCommand,
+	} from '../lib/inferenceCommandOverrides';
+	import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
+	import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+
+	type PanelCfg = {
+		commands: Record<string, string>;
+		modules: { id: string; label: string; platformKey: string }[];
+		needsHfToken: boolean;
+		defaultModule: string;
+		defaultEngine: string;
+		modelSlug: string;
+	};
+
+	function normVllm(engine: string): boolean {
+		return engine.toLowerCase().replace(/[.\-_]/g, '') === 'vllm';
+	}
+
+	function initJetsonInferenceMatrix() {
+		const section = document.getElementById('serve-model');
+		const jsonEl = document.getElementById('inference-panel-config');
+		if (!section || !jsonEl || section.dataset.inferenceInit === '1') return;
+		let cfg: PanelCfg;
+		try {
+			cfg = JSON.parse(jsonEl.textContent || '{}') as PanelCfg;
+		} catch {
+			return;
+		}
+		section.dataset.inferenceInit = '1';
+
+		const advToggle = document.getElementById('inference-advanced-toggle');
+		const advBody = document.getElementById('inference-advanced-body');
+		const advToggleText = advToggle?.querySelector('[data-inference-adv-toggle-text]');
+		const advToggleIcon = advToggle?.querySelector('[data-inference-adv-toggle-icon]');
+		advToggle?.addEventListener('click', () => {
+			if (!advBody || !advToggle) return;
+			advBody.classList.toggle('hidden');
+			const open = !advBody.classList.contains('hidden');
+			advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+			if (advToggleText) advToggleText.textContent = open ? 'Hide' : 'Show';
+			if (advToggleIcon) (advToggleIcon as HTMLElement).style.transform = open ? 'rotate(180deg)' : '';
+		});
+
+		const moduleTabs = section.querySelectorAll<HTMLButtonElement>('.module-tab-btn');
+		const engineBtns = section.querySelectorAll<HTMLButtonElement>('.engine-rail-btn');
+		const display = document.getElementById('inference-command-display');
+		const copyBtn = document.getElementById('inference-matrix-copy-btn');
+		const modLabelEl = document.getElementById('inference-command-mod-label');
+		const engLabelEl = document.getElementById('inference-command-eng-label');
+		const emptyEl = document.getElementById('inference-command-empty');
+		const blockEl = document.getElementById('inference-command-block');
+		const hfSection = document.getElementById('inference-hf-section');
+		const vllmSection = document.getElementById('inference-vllm-section');
+		const hfInput = document.getElementById('inference-hf-token') as HTMLInputElement | null;
+		const vllmPort = document.getElementById('inference-vllm-port') as HTMLInputElement | null;
+		const vllmMax = document.getElementById('inference-vllm-max-len') as HTMLInputElement | null;
+		const vllmGpu = document.getElementById('inference-vllm-gpu') as HTMLInputElement | null;
+		let activeModule = cfg.defaultModule;
+		let activeEngine = cfg.defaultEngine;
+
+		function moduleMeta(id: string) {
+			return cfg.modules.find((m) => m.id === id);
+		}
+
+		function refreshCommand() {
+			const key = `${activeModule}::${activeEngine}`;
+			let base = cfg.commands[key] || '';
+			const meta = moduleMeta(activeModule);
+			if (modLabelEl) modLabelEl.textContent = meta?.label || '';
+			if (engLabelEl) engLabelEl.textContent = activeEngine;
+
+			const isVllm = normVllm(activeEngine);
+			if (vllmSection) {
+				vllmSection.classList.toggle('hidden', !isVllm);
+			}
+
+			const isThor = meta?.platformKey === 'thor';
+			if (hfSection && cfg.needsHfToken) {
+				hfSection.classList.toggle('hidden', !isThor);
+			}
+
+			if (!base) {
+				emptyEl?.classList.remove('hidden');
+				blockEl?.classList.add('hidden');
+				if (display) {
+					display.textContent = '';
+					display.innerHTML = '';
+				}
+				if (copyBtn) {
+					copyBtn.setAttribute('data-code', '');
+					copyBtn.disabled = true;
+				}
+			} else {
+				emptyEl?.classList.add('hidden');
+				blockEl?.classList.remove('hidden');
+				let cmd = base;
+				if (isVllm) {
+					cmd = applyVllmOverridesToCommand(cmd, {
+						vllmPort: vllmPort?.value?.trim(),
+						vllmMaxModelLen: vllmMax?.value?.trim(),
+						vllmGpuMem: vllmGpu?.value?.trim(),
+					});
+				}
+				const tok = hfInput?.value?.trim() || '';
+				cmd = applyHfTokenToCommand(cmd, tok);
+				const { display: shellDisplay, copy: shellCopy } = shellDisplayAndCopy(cmd);
+				if (display) {
+					display.innerHTML = highlightSyntax(shellDisplay, 'shell');
+				}
+				if (copyBtn) {
+					copyBtn.setAttribute('data-code', shellCopy);
+					copyBtn.disabled = !shellCopy;
+				}
+			}
+		}
+
+		function syncEngineAvailability() {
+			engineBtns.forEach((btn) => {
+				const eng = btn.dataset.engine || '';
+				const hasCmd = !!(eng && cfg.commands[`${activeModule}::${eng}`]?.trim());
+				btn.disabled = !hasCmd;
+				btn.setAttribute('aria-disabled', hasCmd ? 'false' : 'true');
+			});
+		}
+
+		function setActiveModule(moduleId: string) {
+			activeModule = moduleId;
+			moduleTabs.forEach((btn) => {
+				const on = btn.dataset.module === moduleId;
+				if (btn.disabled) {
+					btn.setAttribute('aria-selected', 'false');
+					return;
+				}
+				btn.setAttribute('aria-selected', on ? 'true' : 'false');
+				btn.classList.toggle('bg-nvidia-gray-50/90', on);
+				btn.classList.toggle('bg-transparent', !on);
+				btn.classList.toggle('border-b-nvidia-green', on);
+				btn.classList.toggle('text-nvidia-green', on);
+				btn.classList.toggle('border-b-transparent', !on);
+				btn.classList.toggle('text-gray-500', !on);
+				btn.classList.toggle('hover:bg-nvidia-gray-50/80', !on);
+				btn.classList.toggle('hover:text-nvidia-black', !on);
+				btn.classList.toggle('hover:border-b-gray-300', !on);
+			});
+			syncEngineAvailability();
+			const activeKey = `${activeModule}::${activeEngine}`;
+			if (!cfg.commands[activeKey]?.trim()) {
+				const fallback = Array.from(engineBtns).find((b) => !b.disabled)?.dataset.engine;
+				if (fallback) {
+					setActiveEngine(fallback);
+					return;
+				}
+			}
+			refreshCommand();
+		}
+
+		function setActiveEngine(engineName: string) {
+			activeEngine = engineName;
+			engineBtns.forEach((btn) => {
+				const on = !btn.disabled && btn.dataset.engine === engineName;
+				btn.setAttribute('aria-selected', on ? 'true' : 'false');
+				if (btn.disabled) {
+					return;
+				}
+				btn.classList.toggle('border-b-nvidia-green', on);
+				btn.classList.toggle('lg:border-l-nvidia-green', on);
+				btn.classList.toggle('text-nvidia-green', on);
+				btn.classList.toggle('lg:bg-white/80', on);
+				btn.classList.toggle('border-b-transparent', !on);
+				btn.classList.toggle('lg:border-l-transparent', !on);
+				btn.classList.toggle('text-gray-500', !on);
+				btn.classList.toggle('hover:text-nvidia-black', !on);
+				btn.classList.toggle('hover:border-b-gray-300', !on);
+				btn.classList.toggle('lg:hover:border-l-gray-300', !on);
+			});
+			refreshCommand();
+		}
+
+		moduleTabs.forEach((btn) => {
+			btn.addEventListener('click', () => {
+				if (btn.disabled) return;
+				const id = btn.dataset.module;
+				if (id) setActiveModule(id);
+			});
+		});
+
+		engineBtns.forEach((btn) => {
+			btn.addEventListener('click', () => {
+				if (btn.disabled) return;
+				const eng = btn.dataset.engine;
+				if (eng) setActiveEngine(eng);
+			});
+		});
+
+		[hfInput, vllmPort, vllmMax, vllmGpu].forEach((el) => {
+			el?.addEventListener('input', () => refreshCommand());
+		});
+
+		document.getElementById('inference-vllm-reset')?.addEventListener('click', () => {
+			if (vllmPort) vllmPort.value = '';
+			if (vllmMax) vllmMax.value = '';
+			if (vllmGpu) vllmGpu.value = '';
+			refreshCommand();
+		});
+
+		copyBtn?.addEventListener('click', () => {
+			const raw = copyBtn.getAttribute('data-code') || '';
+			if (!raw) return;
+			const label = copyBtn.querySelector('[data-inference-copy-label]');
+			const meta = moduleMeta(activeModule);
+			void navigator.clipboard.writeText(raw).then(() => {
+				trackCopyInferenceCommand({
+					source: 'model_page',
+					model_id: cfg.modelSlug || 'unknown',
+					module_id: activeModule,
+					module_label: meta?.label || activeModule,
+					inference_engine: activeEngine,
+				});
+			});
+			if (label) {
+				const prev = label.textContent || '';
+				label.textContent = 'Copied';
+				setTimeout(() => {
+					label.textContent = prev;
+				}, 1200);
+			}
+		});
+
+		setActiveModule(activeModule);
+		setActiveEngine(activeEngine);
+	}
+
+	initJetsonInferenceMatrix();
+	document.addEventListener('astro:page-load', initJetsonInferenceMatrix);
+</script>

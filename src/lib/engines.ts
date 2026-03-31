@@ -33,6 +33,15 @@ export const INFERENCE_ENGINES: Record<string, InferenceEngine> = {
 			return `vllm serve ${checkpoint}`;
 		}
 	},
+	edgemllm: {
+		id: 'edgemllm',
+		label: 'EdgeLLM',
+		supports: ['Text', 'Multimodal'],
+		buildCommand: ({ modelId }) => {
+			const cliModel = sanitizeModelForCli(modelId);
+			return `echo "Configure EdgeLLM for ${cliModel} (see model YAML run commands)"`;
+		}
+	},
 	llamacpp: {
 		id: 'llamacpp',
 		label: 'llama.cpp',

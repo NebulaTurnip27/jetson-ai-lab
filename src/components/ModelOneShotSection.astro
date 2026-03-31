@@ -1,0 +1,150 @@
+---
+export interface OneShotInferenceProps {
+	modules_supported?: string[];
+	shell?: string;
+	python?: string;
+	intro?: string;
+}
+
+interface Props {
+	oneShot?: OneShotInferenceProps | null;
+	modelSlug: string;
+}
+
+const { oneShot, modelSlug } = Astro.props;
+
+const hasContent = Boolean(oneShot?.shell?.trim() || oneShot?.python?.trim());
+const blocks: { kind: 'shell' | 'python'; label: string; text: string }[] = [];
+if (oneShot?.shell?.trim()) blocks.push({ kind: 'shell', label: 'Shell', text: oneShot.shell.trim() });
+if (oneShot?.python?.trim()) blocks.push({ kind: 'python', label: 'Python', text: oneShot.python.trim() });
+---
+
+<section
+	id="model-one-shot-inference"
+	class="py-14 bg-nvidia-gray-50 border-b border-nvidia-gray-200 scroll-mt-20"
+	aria-labelledby="model-one-shot-heading"
+	data-model-slug={modelSlug}
+>
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<h2 id="model-one-shot-heading" class="text-2xl font-bold text-nvidia-black mb-2">
+			One-shot inference or evaluation
+		</h2>
+		{
+			hasContent ? (
+				<>
+					{oneShot?.intro?.trim() ? (
+						<p class="text-sm text-nvidia-gray-600 max-w-3xl mb-6">{oneShot.intro.trim()}</p>
+					) : (
+						<p class="text-sm text-nvidia-gray-600 max-w-3xl mb-6">
+							Run a single eval or script on the Jetson (not the same as calling an HTTP server from another
+							machine).
+						</p>
+					)}
+					{oneShot?.modules_supported && oneShot.modules_supported.length > 0 && (
+						<p class="text-xs text-nvidia-gray-500 mb-6">
+							<strong class="text-nvidia-gray-700">Modules:</strong>{' '}
+							{oneShot.modules_supported.join(', ')}
+						</p>
+					)}
+					<div class="space-y-8 model-one-shot-blocks">
+						{blocks.map((b, i) => (
+							<div class="model-one-shot-block" data-one-shot-kind={b.kind}>
+								<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+									<h3 class="text-lg font-semibold text-nvidia-black">{b.label}</h3>
+									<button
+										type="button"
+										class="model-one-shot-copy-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold"
+										data-one-shot-copy={i}
+									>
+										<svg
+											class="w-4 h-4 shrink-0"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+											/>
+										</svg>
+										<span data-one-shot-copy-label>Copy</span>
+									</button>
+								</div>
+								<div class="rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] overflow-hidden">
+									<pre
+										class="text-sm font-mono text-slate-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 m-0"
+									>
+										<code
+											class="model-one-shot-code block w-full max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+											data-one-shot-index={i}
+										>
+											{b.text}
+										</code>
+									</pre>
+								</div>
+							</div>
+						))}
+					</div>
+				</>
+			) : (
+				<p class="text-sm text-nvidia-gray-500 max-w-3xl">
+					Scripts, notebooks, and eval workflows for this model will be linked here when available. You can add
+					them under <code class="text-xs bg-nvidia-gray-200/80 px-1 rounded">one_shot_inference</code> in the
+					model front matter.
+				</p>
+			)
+		}
+	</div>
+</section>
+
+{
+	hasContent && (
+		<script>
+			import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
+
+			function initOneShot() {
+				const root = document.getElementById('model-one-shot-inference');
+				if (!root || root.dataset.oneShotInit === '1') return;
+				root.dataset.oneShotInit = '1';
+
+				root.querySelectorAll<HTMLElement>('.model-one-shot-code').forEach((codeEl) => {
+					const raw = codeEl.textContent?.trim() || '';
+					if (!raw) return;
+					codeEl.dataset.copyPlain = raw;
+					const lang = codeEl.closest('.model-one-shot-block')?.getAttribute('data-one-shot-kind') === 'python'
+						? 'python'
+						: 'shell';
+					const { display } = lang === 'shell' ? shellDisplayAndCopy(raw) : { display: raw };
+					codeEl.innerHTML = highlightSyntax(display, lang);
+				});
+
+				root.querySelectorAll<HTMLButtonElement>('.model-one-shot-copy-btn').forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const idx = btn.getAttribute('data-one-shot-copy');
+						const codeEl =
+							idx != null
+								? root.querySelector<HTMLElement>(`.model-one-shot-code[data-one-shot-index="${idx}"]`)
+								: null;
+						const text = codeEl?.dataset.copyPlain?.trim() || '';
+						if (!text) return;
+						void navigator.clipboard.writeText(text);
+						const label = btn.querySelector('[data-one-shot-copy-label]');
+						if (label) {
+							const prev = label.textContent || '';
+							label.textContent = 'Copied';
+							setTimeout(() => {
+								label.textContent = prev;
+							}, 1200);
+						}
+					});
+				});
+			}
+
+			initOneShot();
+			document.addEventListener('astro:page-load', initOneShot);
+		</script>
+	)
+}

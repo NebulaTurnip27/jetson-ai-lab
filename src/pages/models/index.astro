@@ -4,6 +4,7 @@ import Layout from '../../layouts/Layout.astro';
 import RunCommand from '../../components/RunCommand.astro';
 import ModelPerformanceCharts from '../../components/ModelPerformanceCharts.astro';
 import llmBenchmarks from '../../data/benchmarks.json';
+import { getSupportedInferenceEngines, sortEnginesForUi } from '../../lib/modelFrontmatterAdapter';
 
 const modelEntries = await getCollection('models');
 const collectionModels = modelEntries.map(entry => {
@@ -19,9 +20,10 @@ const collectionModels = modelEntries.map(entry => {
     order: entry.data.order ?? 999,
     status: entry.data.is_new ? 'new' : 'stable',
     highlighted: entry.data.is_new,
-    supported_inference_engines: entry.data.supported_inference_engines,
+    supported_inference_engines: sortEnginesForUi(getSupportedInferenceEngines(entry.data)),
     hf_checkpoint: entry.data.hf_checkpoint,
     hideRunButton: entry.data.hide_run_button ?? false,
+    matrix_modules_disabled: entry.data.matrix_modules_disabled,
   };
 });
 
@@ -84,7 +86,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
                     <div class="mt-auto pt-4 border-t border-gray-100">
                       <div class="flex items-center gap-2">
                         {!model.hideRunButton && (
-                          <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} />
+                          <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} />
                         )}
                         <a href={`/models/${model.id}`} class="px-3 py-1.5 rounded-md bg-nvidia-gray-100 text-nvidia-gray-900 hover:bg-nvidia-green hover:text-nvidia-black text-xs font-semibold transition-colors">
                           Details
@@ -143,7 +145,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                       {!model.hideRunButton && (
-                        <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} />
+                        <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} />
                       )}
                       <a href={`/models/${model.id}`} class="px-3 py-1.5 rounded-md bg-nvidia-gray-100 text-nvidia-gray-900 hover:bg-nvidia-green hover:text-nvidia-black text-xs font-semibold transition-colors">
                         Details

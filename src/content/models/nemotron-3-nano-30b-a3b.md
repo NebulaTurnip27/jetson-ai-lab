@@ -14,6 +14,9 @@ hf_checkpoint: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 huggingface_url: "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 build_nvidia_url: "https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b"
 minimum_jetson: "AGX Orin"
+# Demo: gray out a matrix tab (remove or edit per model). Ids: thor_t5000, thor_t4000, orin_agx_64, orin_nx_16, orin_nano_8
+matrix_modules_disabled:
+  - thor_t4000
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
@@ -33,16 +36,16 @@ supported_inference_engines:
         -v $HOME/.cache/huggingface:/root/.cache/huggingface \
         nvcr.io/nvidia/vllm:25.12.post1-py3 \
         bash -c "wget -q -O /tmp/nano_v3_reasoning_parser.py \
-        --header=\"Authorization: Bearer \$HF_TOKEN\" \
-        https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4/resolve/main/nano_v3_reasoning_parser.py \
-        && vllm serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
-        --gpu-memory-utilization 0.8 \
-        --trust-remote-code \
-        --enable-auto-tool-choice \
-        --tool-call-parser qwen3_coder \
-        --reasoning-parser-plugin /tmp/nano_v3_reasoning_parser.py \
-        --reasoning-parser nano_v3 \
-        --kv-cache-dtype fp8"
+          --header=\"Authorization: Bearer \$HF_TOKEN\" \
+          https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4/resolve/main/nano_v3_reasoning_parser.py \
+          && vllm serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
+            --gpu-memory-utilization 0.8 \
+            --trust-remote-code \
+            --enable-auto-tool-choice \
+            --tool-call-parser qwen3_coder \
+            --reasoning-parser-plugin /tmp/nano_v3_reasoning_parser.py \
+            --reasoning-parser nano_v3 \
+            --kv-cache-dtype fp8"
 ---
 
 **Note:** The Thor command requires a [Hugging Face access token](https://huggingface.co/settings/tokens) with access to the gated NVFP4 checkpoint. The Orin command uses a community AWQ checkpoint that does not require authentication. If you see *"Free memory on device … is less than desired GPU memory utilization"*, lower `--gpu-memory-utilization` in the Advanced options.

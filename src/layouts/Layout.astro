@@ -234,6 +234,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     </footer>
 
     <script>
+      import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+
       (function () {
         function qs(root, sel) { return root.querySelector(sel); }
         function qsa(root, sel) { return Array.from(root.querySelectorAll(sel)); }
@@ -447,6 +449,28 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         function buildShell(meta, st) {
           var engineLower = (st.engine || '').toLowerCase();
 
+          if (meta.useMatrix && meta.moduleCommandMatrix && st.activeModule) {
+            var row = meta.moduleCommandMatrix[st.activeModule];
+            if (row) {
+              var base = row[st.engine] || row[engineLower];
+              if (!base) {
+                var normEng = engineLower.replace(/[.\-_]/g, '');
+                for (var rk in row) {
+                  if (Object.prototype.hasOwnProperty.call(row, rk) && rk.replace(/[.\-_]/g, '') === normEng) {
+                    base = row[rk];
+                    break;
+                  }
+                }
+              }
+              if (base) {
+                var cmd = base;
+                if (engineLower === 'vllm') cmd = applyVllmOverrides(cmd, st);
+                cmd = applyHfToken(cmd, st);
+                return cmd;
+              }
+            }
+          }
+
           // Check for full custom command from supportedEngines (for vLLM and llama.cpp)
           if (meta.supportedEngines && meta.supportedEngines.length > 0) {
             var customEngine = meta.supportedEngines.find(function(e) {
@@ -546,14 +570,25 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           return base;
         }
 
+        function firstEnabledRunModuleId(meta) {
+          var list = (meta && meta.modalVisibleModules) || [];
+          for (var i = 0; i < list.length; i++) {
+            if (!list[i].disabled) return list[i].id;
+          }
+          return list[0] && list[0].id;
+        }
+
         function getState(modal, meta) {
           var id = meta.modelId || '';
           var checked = modal.querySelector('input[name="engine-' + id + '"]:checked');
           var engineSel = modal.querySelector('[data-engine]');
+          var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
 
           // Get engine value with multiple fallbacks
           var engineVal = '';
-          if (engineSel && engineSel.value) {
+          if (useMatrix) {
+            engineVal = modal.getAttribute('data-active-engine') || meta.defaultEngineId || 'vllm';
+          } else if (engineSel && engineSel.value) {
             engineVal = engineSel.value;
           } else if (checked && checked.value) {
             engineVal = checked.value;
@@ -561,6 +596,20 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             engineVal = meta.defaultEngineId;
           } else {
             engineVal = 'ollama'; // ultimate fallback
+          }
+
+          var deviceVal;
+          if (useMatrix) {
+            var am = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta);
+            var plat = meta.moduleIdToPlatform && am ? meta.moduleIdToPlatform[am] : 'orin';
+            deviceVal = plat === 'thor' ? 'Jetson Thor' : 'Jetson Orin';
+          } else {
+            deviceVal = qs(modal, '[data-device]') ? qs(modal, '[data-device]').value : undefined;
+          }
+
+          var activeModule = '';
+          if (useMatrix) {
+            activeModule = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta) || '';
           }
 
           // Get vLLM specific parameters (only if inputs exist and have values)
@@ -571,7 +620,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           return {
             engine: engineVal,
-            device: qs(modal, '[data-device]') ? qs(modal, '[data-device]').value : undefined,
+            activeModule: activeModule,
+            device: deviceVal,
             jetpack: qs(modal, '[data-jetpack]') ? qs(modal, '[data-jetpack]').value : undefined,
             port: Number(qs(modal, '[data-port]') ? qs(modal, '[data-port]').value : 9000),
             batch: Number(qs(modal, '[data-batch]') ? qs(modal, '[data-batch]').value : 1),
@@ -591,8 +641,14 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           var hfSection = qs(modal, '[data-hf-token-section]');
           var metaStr = modal.getAttribute('data-meta') || '{}';
           var meta = JSON.parse(metaStr);
+          var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
 
-          var engineVal = engineSel ? engineSel.value.toLowerCase() : '';
+          var engineVal = '';
+          if (useMatrix) {
+            engineVal = (modal.getAttribute('data-active-engine') || '').toLowerCase();
+          } else if (engineSel) {
+            engineVal = engineSel.value.toLowerCase();
+          }
           if (vllmConfig) {
             if (engineVal === 'vllm') {
               vllmConfig.classList.remove('hidden');
@@ -602,14 +658,64 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
 
           if (hfSection) {
-            var deviceSel = qs(modal, '[data-device]');
-            var deviceVal = deviceSel ? deviceSel.value : '';
+            var deviceVal = '';
+            if (useMatrix) {
+              var am = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta);
+              var plat = meta.moduleIdToPlatform && am ? meta.moduleIdToPlatform[am] : 'orin';
+              deviceVal = plat === 'thor' ? 'Jetson Thor' : 'Jetson Orin';
+            } else {
+              var deviceSel = qs(modal, '[data-device]');
+              deviceVal = deviceSel ? deviceSel.value : '';
+            }
             if (meta.needsHfToken && deviceVal === 'Jetson Thor') {
               hfSection.classList.remove('hidden');
             } else {
               hfSection.classList.add('hidden');
             }
           }
+
+          var advStrip = qs(modal, '[data-run-matrix-advanced-strip]');
+          if (advStrip && hfSection && vllmConfig) {
+            var hfVis = !hfSection.classList.contains('hidden');
+            var vllmVis = !vllmConfig.classList.contains('hidden');
+            advStrip.classList.toggle('hidden', !hfVis && !vllmVis);
+          }
+        }
+
+        function syncRunModalMatrixUi(modal, meta) {
+          if (!meta.useMatrix || !meta.modalVisibleModules || !meta.modalVisibleModules.length) return;
+          var am = modal.getAttribute('data-active-module');
+          var ae = modal.getAttribute('data-active-engine');
+          modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
+            if (btn.disabled) {
+              btn.setAttribute('aria-selected', 'false');
+              return;
+            }
+            var on = btn.getAttribute('data-run-module-tab') === am;
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            btn.classList.toggle('bg-nvidia-gray-50/90', on);
+            btn.classList.toggle('bg-transparent', !on);
+            btn.classList.toggle('border-b-nvidia-green', on);
+            btn.classList.toggle('text-nvidia-green', on);
+            btn.classList.toggle('border-b-transparent', !on);
+            btn.classList.toggle('text-gray-500', !on);
+            btn.classList.toggle('hover:bg-nvidia-gray-50/80', !on);
+            btn.classList.toggle('hover:text-nvidia-black', !on);
+            btn.classList.toggle('hover:border-b-gray-300', !on);
+          });
+          modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
+            var on = btn.getAttribute('data-run-engine-btn') === ae;
+            btn.classList.toggle('border-b-nvidia-green', on);
+            btn.classList.toggle('lg:border-l-nvidia-green', on);
+            btn.classList.toggle('text-nvidia-green', on);
+            btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
+            btn.classList.toggle('border-b-transparent', !on);
+            btn.classList.toggle('lg:border-l-transparent', !on);
+            btn.classList.toggle('text-gray-500', !on);
+            btn.classList.toggle('hover:text-nvidia-black', !on);
+            btn.classList.toggle('hover:border-b-gray-300', !on);
+            btn.classList.toggle('lg:hover:border-l-gray-300', !on);
+          });
         }
 
         function render(modal) {
@@ -660,6 +766,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
         function openModal(modal) {
           modal.classList.remove('hidden');
+          var metaStr = modal.getAttribute('data-meta') || '{}';
+          var metaOpen = JSON.parse(metaStr);
+          if (metaOpen.useMatrix && metaOpen.defaultModuleId) {
+            modal.setAttribute('data-active-module', metaOpen.defaultModuleId);
+            modal.setAttribute('data-active-engine', metaOpen.defaultEngineId || 'vllm');
+            syncRunModalMatrixUi(modal, metaOpen);
+          }
           // Force active tab to shell if not set
           if (!modal.getAttribute('data-tab')) {
              modal.setAttribute('data-tab', 'shell');
@@ -724,11 +837,72 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             var pre = modal && qs(modal, '[data-snippet]');
             if (pre) {
               var toCopy = (pre.dataset && pre.dataset.copyText !== undefined) ? pre.dataset.copyText : (pre.textContent || '');
-              navigator.clipboard.writeText(toCopy);
+              navigator.clipboard.writeText(toCopy).then(function () {
+                try {
+                  var meta = JSON.parse(modal.getAttribute('data-meta') || '{}');
+                  var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
+                  var moduleId = '';
+                  var moduleLabel = '';
+                  var engineId = '';
+                  var jetsonDevice = '';
+                  if (useMatrix) {
+                    moduleId = modal.getAttribute('data-active-module') || '';
+                    engineId = (modal.getAttribute('data-active-engine') || '').toLowerCase();
+                    var mods = meta.modalVisibleModules || [];
+                    var mi;
+                    for (var i = 0; i < mods.length; i++) {
+                      if (mods[i].id === moduleId) { mi = mods[i]; break; }
+                    }
+                    moduleLabel = mi ? (mi.label || mi.shortLabel || moduleId) : moduleId;
+                  } else {
+                    var devEl = qs(modal, '[data-device]');
+                    var engEl = qs(modal, '[data-engine]');
+                    jetsonDevice = devEl ? devEl.value : '';
+                    engineId = engEl ? engEl.value : '';
+                    moduleLabel = jetsonDevice;
+                    moduleId = jetsonDevice ? jetsonDevice.replace(/\s+/g, '_').toLowerCase() : '';
+                  }
+                  trackCopyInferenceCommand({
+                    source: 'run_modal',
+                    model_id: meta.modelId || '',
+                    module_id: moduleId,
+                    module_label: moduleLabel,
+                    inference_engine: engineId,
+                    jetson_device: useMatrix ? undefined : jetsonDevice
+                  });
+                } catch (err) { /* ignore analytics */ }
+              });
               var original = copyBtn.textContent;
               copyBtn.textContent = 'Copied';
               setTimeout(function () { copyBtn.textContent = original || 'Copy'; }, 1200);
             }
+            return;
+          }
+
+          var modTab = e.target.closest('[data-run-module-tab]');
+          if (modTab) {
+            if (modTab.disabled) return;
+            var modalM = modTab.closest('[data-run-modal]');
+            if (modalM) {
+              var mid = modTab.getAttribute('data-run-module-tab');
+              if (mid) modalM.setAttribute('data-active-module', mid);
+              var metaM = JSON.parse(modalM.getAttribute('data-meta') || '{}');
+              syncRunModalMatrixUi(modalM, metaM);
+              updateVllmConfigVisibility(modalM);
+              render(modalM);
+            }
+            return;
+          }
+
+          var engMatrixBtn = e.target.closest('[data-run-engine-btn]');
+          if (engMatrixBtn && engMatrixBtn.closest('[data-run-modal]')) {
+            var modalE = engMatrixBtn.closest('[data-run-modal]');
+            var eid = engMatrixBtn.getAttribute('data-run-engine-btn');
+            if (eid) modalE.setAttribute('data-active-engine', eid);
+            var metaE = JSON.parse(modalE.getAttribute('data-meta') || '{}');
+            syncRunModalMatrixUi(modalE, metaE);
+            updateVllmConfigVisibility(modalE);
+            render(modalE);
             return;
           }
 

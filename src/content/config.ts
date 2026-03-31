@@ -1,92 +1,156 @@
 import { defineCollection, z } from 'astro:content';
 
 const tutorials = defineCollection({
-  type: 'content',
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    category: z.enum(['Text', 'Image', 'Audio', 'Applications', 'VLM', 'VLA', 'Fundamentals', 'Setup', 'Workshops', 'Model Optimization']),
-    section: z.string().optional(), // For sub-grouping within categories (e.g., "Inference Engines", "Getting Started")
-    order: z.number().optional(), // For custom ordering within sections
-    tags: z.array(z.string()),
-    model: z.string().optional(),
-    featured: z.boolean().optional(),
-    isNew: z.boolean().optional(), // Mark as new tutorial
-    hero_image: z.string().optional(), // Optional background image for hero section
-  }),
+	type: 'content',
+	schema: z.object({
+		title: z.string(),
+		description: z.string(),
+		category: z.enum([
+			'Text',
+			'Image',
+			'Audio',
+			'Applications',
+			'VLM',
+			'VLA',
+			'Fundamentals',
+			'Setup',
+			'Workshops',
+			'Model Optimization',
+		]),
+		section: z.string().optional(), // For sub-grouping within categories (e.g., "Inference Engines", "Getting Started")
+		order: z.number().optional(), // For custom ordering within sections
+		tags: z.array(z.string()),
+		model: z.string().optional(),
+		featured: z.boolean().optional(),
+		isNew: z.boolean().optional(), // Mark as new tutorial
+		hero_image: z.string().optional(), // Optional background image for hero section
+	}),
 });
 
+/** Legacy matrix + Run modal (still the default for all existing models). */
+const supportedInferenceEngineEntrySchema = z.object({
+	engine: z.string(),
+	type: z.string(),
+	install_command: z.string().optional(),
+	run_command: z.string().optional(),
+	install_command_orin: z.string().optional(),
+	run_command_orin: z.string().optional(),
+	install_command_thor: z.string().optional(),
+	run_command_thor: z.string().optional(),
+});
+
+/** New shape: when `serving.entries` is non-empty it overrides `supported_inference_engines` in the UI adapter. */
+const servingEntrySchema = z.object({
+	engine: z.string(),
+	type: z.string().optional(),
+	modules_supported: z.array(z.string()).optional(),
+	install_command: z.string().optional(),
+	run_command: z.string().optional(),
+	run_command_orin: z.string().optional(),
+	run_command_thor: z.string().optional(),
+	run_commands_by_module: z.record(z.string()).optional(),
+});
+
+const benchmarkPlatformSchema = z.object({
+	concurrency1: z.number(),
+	concurrency8: z.number(),
+	ttftMs: z.number(),
+});
+
+const modelsSchema = z.object({
+	title: z.string(),
+	model_id: z.string().optional(),
+	short_description: z.string(),
+	family: z.string().optional(),
+	icon: z.string().optional(),
+	is_new: z.boolean().optional(),
+	hide_run_button: z.boolean().optional(),
+	order: z.number().optional(),
+	type: z.string().optional(),
+	hf_checkpoint: z.string().optional(),
+	huggingface_url: z.string().url().optional(),
+	build_nvidia_url: z.string().url().optional(),
+	memory_requirements: z.string(),
+	precision: z.string(),
+	model_size: z.string(),
+	minimum_jetson: z.string().optional(),
+	/** Matrix tab ids to show grayed / non-clickable (e.g. not validated for this model yet). */
+	matrix_modules_disabled: z.array(z.string()).optional(),
+	supported_inference_engines: z.array(supportedInferenceEngineEntrySchema).optional(),
+	serving: z
+		.object({
+			entries: z.array(servingEntrySchema),
+		})
+		.optional(),
+	client_call: z
+		.object({
+			shell: z.string().optional(),
+			python: z.string().optional(),
+			intro: z.string().optional(),
+		})
+		.optional(),
+	one_shot_inference: z
+		.object({
+			modules_supported: z.array(z.string()).optional(),
+			shell: z.string().optional(),
+			python: z.string().optional(),
+			intro: z.string().optional(),
+		})
+		.optional(),
+	benchmark: z
+		.object({
+			orin: benchmarkPlatformSchema,
+			thor: benchmarkPlatformSchema,
+		})
+		.optional(),
+});
+
+export type ModelCollectionData = z.infer<typeof modelsSchema>;
+
 const models = defineCollection({
-  type: 'content',
-  schema: z.object({
-    title: z.string(),
-    model_id: z.string().optional(), // For linking to benchmarks.json if needed, or internal ID
-    short_description: z.string(), // For hero text
-    family: z.string().optional(), // Grouping for index
-    icon: z.string().optional(), // Emoji or icon
-    is_new: z.boolean().optional(),
-    hide_run_button: z.boolean().optional(),
-    order: z.number().optional(), // For ordering within family (smaller = first)
-    type: z.string().optional(), // e.g. "Multimodal", "Text"
-    hf_checkpoint: z.string().optional(),
-    huggingface_url: z.string().url().optional(), // Link to HuggingFace model page
-    build_nvidia_url: z.string().url().optional(), // Link to build.nvidia.com model page
-    memory_requirements: z.string(),
-    precision: z.string(),
-    model_size: z.string(),
-    minimum_jetson: z.string().optional(),
-    supported_inference_engines: z.array(z.object({
-      engine: z.string(),
-      type: z.string(), // "Container" or "Native"
-      install_command: z.string().optional(),
-      run_command: z.string().optional(),
-      install_command_orin: z.string().optional(),
-      run_command_orin: z.string().optional(),
-      install_command_thor: z.string().optional(),
-      run_command_thor: z.string().optional(),
-    })),
-    benchmark: z.object({
-      orin: z.object({
-        concurrency1: z.number(),
-        concurrency8: z.number(),
-        ttftMs: z.number(),
-      }),
-      thor: z.object({
-        concurrency1: z.number(),
-        concurrency8: z.number(),
-        ttftMs: z.number(),
-      }),
-    }).optional(),
-  }),
+	type: 'content',
+	schema: modelsSchema.superRefine((data, ctx) => {
+		if (data.hide_run_button) return;
+		const hasServing = (data.serving?.entries?.length ?? 0) > 0;
+		const hasLegacy = (data.supported_inference_engines?.length ?? 0) > 0;
+		if (!hasServing && !hasLegacy) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					'Provide supported_inference_engines and/or serving.entries (non-empty), or set hide_run_button: true.',
+				path: ['supported_inference_engines'],
+			});
+		}
+	}),
 });
 
 const projects = defineCollection({
-  type: 'content',
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    author: z.string(),
-    date: z.string(),
-    source: z.enum(['GitHub', 'Hackster', 'YouTube', 'NVIDIA', 'JetsonHacks', 'Medium', 'Seeed', 'Other']),
-    link: z.string().url(),
-    image: z.string().optional(),
-    video: z.string().optional(),
-    featured: z.boolean().optional(),
-    tags: z.array(z.string()).optional(),
-    jetson: z.array(z.enum(['Jetson Thor', 'Jetson AGX Orin', 'Jetson Orin Nano'])).optional(),
-  }),
+	type: 'content',
+	schema: z.object({
+		title: z.string(),
+		description: z.string(),
+		author: z.string(),
+		date: z.string(),
+		source: z.enum(['GitHub', 'Hackster', 'YouTube', 'NVIDIA', 'JetsonHacks', 'Medium', 'Seeed', 'Other']),
+		link: z.string().url(),
+		image: z.string().optional(),
+		video: z.string().optional(),
+		featured: z.boolean().optional(),
+		tags: z.array(z.string()).optional(),
+		jetson: z.array(z.enum(['Jetson Thor', 'Jetson AGX Orin', 'Jetson Orin Nano'])).optional(),
+	}),
 });
 
 const gtc26 = defineCollection({
-  type: 'content',
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    labNumber: z.number().optional(), // omit for setup page
-    duration: z.string(),
-    type: z.string().optional(),
-    order: z.number(),
-  }),
+	type: 'content',
+	schema: z.object({
+		title: z.string(),
+		description: z.string(),
+		labNumber: z.number().optional(),
+		duration: z.string(),
+		type: z.string().optional(),
+		order: z.number(),
+	}),
 });
 
 export const collections = { tutorials, models, projects, gtc26 };
