@@ -14,9 +14,14 @@ hf_checkpoint: "nvidia/Cosmos-Reason1-7B"
 huggingface_url: "https://huggingface.co/nvidia/Cosmos-Reason1-7B"
 build_nvidia_url: "https://build.nvidia.com/nvidia/cosmos-reason1-7b"
 minimum_jetson: "AGX Orin"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
     run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -e HF_TOKEN=$HF_TOKEN -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve nvidia/Cosmos-Reason1-7B --max-model-len 8192 --gpu-memory-utilization 0.8 --reasoning-parser qwen3"
     run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -e HF_TOKEN=$HF_TOKEN -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve nvidia/Cosmos-Reason1-7B --max-model-len 8192 --gpu-memory-utilization 0.6 --reasoning-parser qwen3"
 ---

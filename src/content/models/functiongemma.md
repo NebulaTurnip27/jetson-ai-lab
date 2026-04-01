@@ -13,9 +13,16 @@ model_size: "0.5GB"
 hf_checkpoint: "ggml-org/functiongemma-270m-it-GGUF"
 huggingface_url: "https://huggingface.co/google/functiongemma-270m-it"
 minimum_jetson: "Orin Nano"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "llama.cpp"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
+      - orin_nx_16
+      - orin_nano_8
     run_command_orin: "sudo docker run -it --rm --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin llama-server --jinja -fa on -hf ggml-org/functiongemma-270m-it-GGUF --alias functiongemma"
     run_command_thor: "sudo docker run -it --rm --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor llama-server --jinja -fa on -hf ggml-org/functiongemma-270m-it-GGUF --alias functiongemma"
 ---

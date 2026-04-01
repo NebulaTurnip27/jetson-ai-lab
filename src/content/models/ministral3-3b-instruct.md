@@ -12,9 +12,16 @@ precision: "FP8"
 model_size: "2GB"
 hf_checkpoint: "mistralai/Ministral-3-3B-Instruct-2512"
 minimum_jetson: "Orin Nano"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
+      - orin_nx_16
+      - orin_nano_8
     run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve mistralai/Ministral-3-3B-Instruct-2512"
     run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve mistralai/Ministral-3-3B-Instruct-2512"
 ---

@@ -13,6 +13,7 @@ model_size: "2.5GB"
 hf_checkpoint: "RedHatAI/Qwen3-4B-quantized.w4a16"
 huggingface_url: "https://huggingface.co/Qwen/Qwen3-4B"
 minimum_jetson: "Orin Nano"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 benchmark:
   orin:
     concurrency1: 42.15
@@ -25,6 +26,12 @@ benchmark:
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
+      - orin_nx_16
+      - orin_nano_8
     run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve RedHatAI/Qwen3-4B-quantized.w4a16"
     run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve RedHatAI/Qwen3-4B-quantized.w4a16"
 ---

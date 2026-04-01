@@ -12,13 +12,22 @@ precision: "FP16"
 model_size: "9GB"
 hf_checkpoint: "mistralai/Ministral-3-14B-Reasoning-2512"
 minimum_jetson: "Orin AGX"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "Ollama"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
     install_command: "curl -fsSL https://ollama.ai/install.sh | sh"
     run_command: "ollama run ministral-3:14b"
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
     run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve mistralai/Ministral-3-14B-Reasoning-2512"
     run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve mistralai/Ministral-3-14B-Reasoning-2512"
 ---

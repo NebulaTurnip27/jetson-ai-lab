@@ -12,9 +12,15 @@ precision: "AWQ 4-bit"
 model_size: "5GB"
 hf_checkpoint: "cpatonn/Qwen3-VL-8B-Instruct-AWQ-4bit"
 minimum_jetson: "Orin NX"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
+      - orin_nx_16
     run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve cpatonn/Qwen3-VL-8B-Instruct-AWQ-4bit"
     run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve cpatonn/Qwen3-VL-8B-Instruct-AWQ-4bit"
 ---
