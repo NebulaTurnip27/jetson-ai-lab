@@ -235,6 +235,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
     <script>
       import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+      import {
+        readInferenceBrowserPrefs,
+        writeInferenceBrowserPrefsPatch,
+        clearVllmFieldsInInferenceBrowserPrefs,
+        normalizeInferenceEngineKey,
+      } from '../lib/inferenceBrowserPrefs';
 
       (function () {
         function qs(root, sel) { return root.querySelector(sel); }
@@ -353,10 +359,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             if (vllmEngine) {
               var customCmd = null;
               var device = st.device || 'Jetson Orin';
-              if (device === 'Jetson Thor' && vllmEngine.run_command_thor) {
-                customCmd = vllmEngine.run_command_thor;
-              } else if (device === 'Jetson Orin' && vllmEngine.run_command_orin) {
-                customCmd = vllmEngine.run_command_orin;
+              if (device === 'Jetson Thor' && (vllmEngine.serve_command_thor || vllmEngine.run_command_thor)) {
+                customCmd = vllmEngine.serve_command_thor || vllmEngine.run_command_thor;
+              } else if (device === 'Jetson Orin' && (vllmEngine.serve_command_orin || vllmEngine.run_command_orin)) {
+                customCmd = vllmEngine.serve_command_orin || vllmEngine.run_command_orin;
               } else if (vllmEngine.run_command) {
                 customCmd = vllmEngine.run_command;
               }
@@ -489,10 +495,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             if (customEngine) {
               var customCmd = null;
               var device = st.device || 'Jetson Orin';
-              if (device === 'Jetson Thor' && customEngine.run_command_thor) {
-                customCmd = customEngine.run_command_thor;
-              } else if (device === 'Jetson Orin' && customEngine.run_command_orin) {
-                customCmd = customEngine.run_command_orin;
+              if (device === 'Jetson Thor' && (customEngine.serve_command_thor || customEngine.run_command_thor)) {
+                customCmd = customEngine.serve_command_thor || customEngine.run_command_thor;
+              } else if (device === 'Jetson Orin' && (customEngine.serve_command_orin || customEngine.run_command_orin)) {
+                customCmd = customEngine.serve_command_orin || customEngine.run_command_orin;
               } else if (customEngine.run_command) {
                 customCmd = customEngine.run_command;
               }
@@ -822,6 +828,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
         }
 
+        function findRunModalEngineButton(modal, engineId) {
+          var want = normalizeInferenceEngineKey(engineId || '');
+          var btns = modal.querySelectorAll('[data-run-engine-btn]');
+          for (var i = 0; i < btns.length; i++) {
+            var bid = btns[i].getAttribute('data-run-engine-btn') || '';
+            if (normalizeInferenceEngineKey(bid) === want) return btns[i];
+          }
+          return null;
+        }
+
+        function applyVllmInputsFromPrefs(modal) {
+          var p = readInferenceBrowserPrefs();
+          var vp = qs(modal, '[data-vllm-port]');
+          var vm = qs(modal, '[data-vllm-max-model-len]');
+          var vg = qs(modal, '[data-vllm-gpu-mem]');
+          if (vp && p.vllmPort) vp.value = p.vllmPort;
+          if (vm && p.vllmMaxModelLen) vm.value = p.vllmMaxModelLen;
+          if (vg && p.vllmGpuMem) vg.value = p.vllmGpuMem;
+        }
+
         function render(modal) {
           try {
             var metaStr = modal.getAttribute('data-meta') || '{}';
@@ -872,12 +898,31 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           modal.classList.remove('hidden');
           var metaStr = modal.getAttribute('data-meta') || '{}';
           var metaOpen = JSON.parse(metaStr);
+          var prefs = readInferenceBrowserPrefs();
           if (metaOpen.useMatrix && metaOpen.defaultModuleId) {
-            modal.setAttribute('data-active-module', metaOpen.defaultModuleId);
-            modal.setAttribute('data-active-engine', metaOpen.defaultEngineId || 'vllm');
+            var defEng = metaOpen.defaultEngineId || 'vllm';
+            var engBtn = prefs.matrixEngineId ? findRunModalEngineButton(modal, prefs.matrixEngineId) : null;
+            var engToSet =
+              engBtn && !engBtn.disabled
+                ? engBtn.getAttribute('data-run-engine-btn') || defEng
+                : defEng;
+            modal.setAttribute('data-active-engine', engToSet);
             updateRunModalModuleTabAvailability(modal, metaOpen);
+            var modToSet = metaOpen.defaultModuleId;
+            if (prefs.matrixModuleId) {
+              var modEl = modal.querySelector('[data-run-module-tab="' + prefs.matrixModuleId + '"]');
+              if (modEl && !modEl.disabled) modToSet = prefs.matrixModuleId;
+            }
+            modal.setAttribute('data-active-module', modToSet);
+            updateRunModalModuleTabAvailability(modal, metaOpen);
+            syncRunModalMatrixUi(modal, metaOpen);
           } else if (metaOpen.useEvalMatrix && metaOpen.defaultEvalModuleId) {
-            modal.setAttribute('data-active-module', metaOpen.defaultEvalModuleId);
+            var modEval = metaOpen.defaultEvalModuleId;
+            if (prefs.matrixModuleId) {
+              var evEl = modal.querySelector('[data-run-module-tab="' + prefs.matrixModuleId + '"]');
+              if (evEl && !evEl.disabled) modEval = prefs.matrixModuleId;
+            }
+            modal.setAttribute('data-active-module', modEval);
             syncRunModalMatrixUi(modal, metaOpen);
           }
           // Force active tab to shell if not set
@@ -901,6 +946,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
           // Show/hide vLLM config based on current engine
           updateVllmConfigVisibility(modal);
+          applyVllmInputsFromPrefs(modal);
           render(modal);
         }
 
@@ -1011,7 +1057,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             var modalM = modTab.closest('[data-run-modal]');
             if (modalM) {
               var mid = modTab.getAttribute('data-run-module-tab');
-              if (mid) modalM.setAttribute('data-active-module', mid);
+              if (mid) {
+                modalM.setAttribute('data-active-module', mid);
+                writeInferenceBrowserPrefsPatch({ matrixModuleId: mid });
+              }
               var metaM = JSON.parse(modalM.getAttribute('data-meta') || '{}');
               syncRunModalMatrixUi(modalM, metaM);
               updateVllmConfigVisibility(modalM);
@@ -1024,7 +1073,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           if (engMatrixBtn && engMatrixBtn.closest('[data-run-modal]')) {
             var modalE = engMatrixBtn.closest('[data-run-modal]');
             var eid = engMatrixBtn.getAttribute('data-run-engine-btn');
-            if (eid) modalE.setAttribute('data-active-engine', eid);
+            if (eid) {
+              modalE.setAttribute('data-active-engine', eid);
+              writeInferenceBrowserPrefsPatch({ matrixEngineId: eid });
+            }
             var metaE = JSON.parse(modalE.getAttribute('data-meta') || '{}');
             updateRunModalModuleTabAvailability(modalE, metaE);
             updateVllmConfigVisibility(modalE);
@@ -1057,6 +1109,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           if (vllmReset) {
             var modal = vllmReset.closest('[data-run-modal]');
             if (modal) {
+              clearVllmFieldsInInferenceBrowserPrefs();
               var vllmPort = qs(modal, '[data-vllm-port]');
               var vllmMaxLen = qs(modal, '[data-vllm-max-model-len]');
               var vllmGpuMem = qs(modal, '[data-vllm-gpu-mem]');
@@ -1080,7 +1133,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         });
         document.addEventListener('input', function (e) {
           var modal = e.target.closest('[data-run-modal]');
-          if (modal) render(modal);
+          if (modal) {
+            var t = e.target;
+            if (t && t.matches && t.matches('[data-vllm-port]')) {
+              writeInferenceBrowserPrefsPatch({ vllmPort: t.value || undefined });
+            } else if (t && t.matches && t.matches('[data-vllm-max-model-len]')) {
+              writeInferenceBrowserPrefsPatch({ vllmMaxModelLen: t.value || undefined });
+            } else if (t && t.matches && t.matches('[data-vllm-gpu-mem]')) {
+              writeInferenceBrowserPrefsPatch({ vllmGpuMem: t.value || undefined });
+            }
+            render(modal);
+          }
         });
       })();
     </script>

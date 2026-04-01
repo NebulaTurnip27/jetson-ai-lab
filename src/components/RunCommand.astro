@@ -29,8 +29,10 @@ interface SupportedEngine {
 	install_command?: string;
 	run_command?: string;
 	install_command_orin?: string;
-	run_command_orin?: string;
+	serve_command_orin?: string;
 	install_command_thor?: string;
+	serve_command_thor?: string;
+	run_command_orin?: string;
 	run_command_thor?: string;
 	modules_supported?: string[];
 	run_commands_by_module?: Record<string, string>;
@@ -113,11 +115,17 @@ if (supportedEngines && supportedEngines.length > 0) {
 
 const jetpacks = ['6.1+', '6.0', '5.1'];
 
-const needsHfToken = supportedEngines?.some(e =>
-	(e.run_command_orin && e.run_command_orin.includes('HF_TOKEN')) ||
-	(e.run_command_thor && e.run_command_thor.includes('HF_TOKEN')) ||
-	(e.run_command && e.run_command.includes('HF_TOKEN'))
-) ?? false;
+const needsHfToken =
+	supportedEngines?.some((e) => {
+		const cmds = [
+			e.serve_command_orin,
+			e.serve_command_thor,
+			e.run_command_orin,
+			e.run_command_thor,
+			e.run_command,
+		];
+		return cmds.some((c) => c && c.includes('HF_TOKEN'));
+	}) ?? false;
 
 const engineUi = engines.map((e) => ({ id: e.id, label: e.label }));
 

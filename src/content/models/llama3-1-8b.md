@@ -7,6 +7,7 @@ icon: "🦙"
 is_new: false
 order: 2
 type: "Text"
+vision_capable: false
 memory_requirements: "8GB RAM"
 precision: "W4A16"
 model_size: "4.5GB"
@@ -32,8 +33,10 @@ supported_inference_engines:
       - thor_t4000
       - orin_agx_64
       - orin_nx_16
-    install_command: "curl -fsSL https://ollama.ai/install.sh | sh"
-    run_command: "ollama run llama3.1:8b"
+    install_command: |-
+      curl -fsSL https://ollama.ai/install.sh | sh
+    serve_command_orin: ollama pull llama3.1:8b && ollama serve
+    serve_command_thor: ollama pull llama3.1:8b && ollama serve
   - engine: "vLLM"
     type: "Container"
     modules_supported:
@@ -41,11 +44,29 @@ supported_inference_engines:
       - thor_t4000
       - orin_agx_64
       - orin_nx_16
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve RedHatAI/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve RedHatAI/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve RedHatAI/Meta-Llama-3.1-8B-Instruct-quantized.w4a16
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve RedHatAI/Meta-Llama-3.1-8B-Instruct-quantized.w4a16
+one_shot_inference:
+  modules_supported:
+    - thor_t5000
+    - thor_t4000
+    - orin_agx_64
+    - orin_nx_16
+    - orin_nano_8
+  run_command_orin: ollama run llama3.1:8b
+  run_command_thor: ollama run llama3.1:8b
 ---
 
 Meta's Llama 3.1 8B Instruct is a powerful instruction-tuned language model with 8 billion parameters. This quantized version (W4A16) provides excellent performance while being memory efficient for edge deployment on Jetson devices.
 
 The model excels at following instructions, answering questions, and generating coherent text across a wide range of tasks.
+
 

@@ -88,17 +88,21 @@ const panelConfigJson = JSON.stringify({
 ---
 
 {
-	sortedEngines.length > 0 && visibleModules.length > 0 && (
-		<section
-			id="serve-model"
+		sortedEngines.length > 0 && visibleModules.length > 0 && (
+		<div
+			data-inference-matrix-root
+			role="region"
+			aria-labelledby="serve-start-server-heading"
 			class:list={['py-16 bg-nvidia-gray-50 border-b border-nvidia-gray-200 scroll-mt-20', sectionClass]}
 		>
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="mb-8">
-					<h2 class="text-3xl font-bold text-nvidia-black mb-2">Serve this model on Jetson</h2>
+					<h3 id="serve-start-server-heading" class="text-2xl font-bold text-nvidia-black mb-2">
+						Start server
+					</h3>
 					<p class="text-sm text-nvidia-gray-600">
-						Choose module, then engine and optional parameters on the left, then copy the <strong>server</strong> command on
-						the right. Long lines wrap automatically. Nothing is stored.
+						Choose module, then engine and optional parameters on the left, then copy the serve command by clicking the
+						button on the right.
 					</p>
 				</div>
 
@@ -358,7 +362,7 @@ const panelConfigJson = JSON.stringify({
 										<button
 											type="button"
 											id="inference-matrix-copy-btn"
-											class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-white/40 disabled:hover:text-nvidia-gray-800"
+											class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/80 backdrop-blur-sm border-2 border-nvidia-green text-nvidia-gray-800 shadow-md hover:bg-white hover:text-nvidia-green transition-all text-xs font-bold disabled:opacity-40 disabled:pointer-events-none disabled:border-nvidia-gray-300 disabled:text-nvidia-gray-600 disabled:shadow-sm disabled:hover:border-nvidia-gray-300 disabled:hover:text-nvidia-gray-600"
 											disabled
 										>
 											<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -402,6 +406,12 @@ const panelConfigJson = JSON.stringify({
 	} from '../lib/inferenceCommandOverrides';
 	import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
 	import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+	import {
+		readInferenceBrowserPrefs,
+		writeInferenceBrowserPrefsPatch,
+		clearVllmFieldsInInferenceBrowserPrefs,
+		normalizeInferenceEngineKey,
+	} from '../lib/inferenceBrowserPrefs';
 
 	type PanelCfg = {
 		commands: Record<string, string>;
@@ -423,16 +433,16 @@ const panelConfigJson = JSON.stringify({
 	}
 
 	function initJetsonInferenceMatrix() {
-		const section = document.getElementById('serve-model');
+		const section = document.querySelector('[data-inference-matrix-root]');
 		const jsonEl = document.getElementById('inference-panel-config');
-		if (!section || !jsonEl || section.dataset.inferenceInit === '1') return;
+		if (!section || !jsonEl || (section as HTMLElement).dataset.inferenceInit === '1') return;
 		let cfg: PanelCfg;
 		try {
 			cfg = JSON.parse(jsonEl.textContent || '{}') as PanelCfg;
 		} catch {
 			return;
 		}
-		section.dataset.inferenceInit = '1';
+		(section as HTMLElement).dataset.inferenceInit = '1';
 
 		const advToggle = document.getElementById('inference-advanced-toggle');
 		const advBody = document.getElementById('inference-advanced-body');
@@ -461,8 +471,27 @@ const panelConfigJson = JSON.stringify({
 		const vllmPort = document.getElementById('inference-vllm-port') as HTMLInputElement | null;
 		const vllmMax = document.getElementById('inference-vllm-max-len') as HTMLInputElement | null;
 		const vllmGpu = document.getElementById('inference-vllm-gpu') as HTMLInputElement | null;
+
+		const prefs = readInferenceBrowserPrefs();
 		let activeModule = cfg.defaultModule;
+		if (prefs.matrixModuleId) {
+			const pm = cfg.modules.find((m) => m.id === prefs.matrixModuleId && !m.globalDisabled);
+			if (pm) activeModule = prefs.matrixModuleId;
+		}
 		let activeEngine = cfg.defaultEngine;
+		if (prefs.matrixEngineId) {
+			const want = normalizeInferenceEngineKey(prefs.matrixEngineId);
+			const matchBtn = Array.from(engineBtns).find(
+				(b) => normalizeInferenceEngineKey(b.getAttribute('data-engine') || '') === want,
+			);
+			if (matchBtn) {
+				activeEngine = matchBtn.getAttribute('data-engine')?.trim() || activeEngine;
+			}
+		}
+		if (prefs.vllmPort && vllmPort) vllmPort.value = prefs.vllmPort;
+		if (prefs.vllmMaxModelLen && vllmMax) vllmMax.value = prefs.vllmMaxModelLen;
+		if (prefs.vllmGpuMem && vllmGpu) vllmGpu.value = prefs.vllmGpuMem;
+
 		let inferenceCopyLabelTimer: ReturnType<typeof setTimeout> | null = null;
 
 		function resetInferenceCopyLabel() {
@@ -622,6 +651,7 @@ const panelConfigJson = JSON.stringify({
 
 		function setActiveModule(moduleId: string) {
 			activeModule = moduleId;
+			writeInferenceBrowserPrefsPatch({ matrixModuleId: moduleId });
 			moduleTabs.forEach((btn) => {
 				const on = btn.dataset.module === moduleId;
 				if (btn.disabled) {
@@ -663,6 +693,7 @@ const panelConfigJson = JSON.stringify({
 
 		function setActiveEngine(engineName: string) {
 			activeEngine = engineName;
+			writeInferenceBrowserPrefsPatch({ matrixEngineId: engineName });
 			applyModuleTabsEnabledState();
 			const curTab = Array.from(moduleTabs).find((b) => b.dataset.module === activeModule);
 			if (!curTab || curTab.disabled) {
@@ -695,11 +726,22 @@ const panelConfigJson = JSON.stringify({
 			});
 		});
 
-		[hfInput, vllmPort, vllmMax, vllmGpu].forEach((el) => {
-			el?.addEventListener('input', () => refreshCommand());
+		hfInput?.addEventListener('input', () => refreshCommand());
+		vllmPort?.addEventListener('input', () => {
+			writeInferenceBrowserPrefsPatch({ vllmPort: vllmPort.value || undefined });
+			refreshCommand();
+		});
+		vllmMax?.addEventListener('input', () => {
+			writeInferenceBrowserPrefsPatch({ vllmMaxModelLen: vllmMax.value || undefined });
+			refreshCommand();
+		});
+		vllmGpu?.addEventListener('input', () => {
+			writeInferenceBrowserPrefsPatch({ vllmGpuMem: vllmGpu.value || undefined });
+			refreshCommand();
 		});
 
 		document.getElementById('inference-vllm-reset')?.addEventListener('click', () => {
+			clearVllmFieldsInInferenceBrowserPrefs();
 			if (vllmPort) vllmPort.value = '';
 			if (vllmMax) vllmMax.value = '';
 			if (vllmGpu) vllmGpu.value = '';

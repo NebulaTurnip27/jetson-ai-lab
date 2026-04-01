@@ -7,6 +7,7 @@ icon: "🧠"
 is_new: false
 order: 4
 type: "Multimodal"
+vision_capable: true
 memory_requirements: "18GB RAM"
 precision: "FP8"
 model_size: "10GB"
@@ -24,9 +25,28 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    install_command: "ngc registry model download-version \"nim/nvidia/cosmos-reason2-8b:1208-fp8-static-kv8\""
-    run_command_orin: "sudo docker run -it --rm --runtime=nvidia --network host -v $MODEL_PATH:/models/cosmos-reason2-8b:ro ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve /models/cosmos-reason2-8b --max-model-len 8192 --gpu-memory-utilization 0.8 --reasoning-parser qwen3 --media-io-kwargs '{\"video\": {\"num_frames\": -1}}'"
-    run_command_thor: "sudo docker run -it --rm --runtime=nvidia --network host -v $MODEL_PATH:/models/cosmos-reason2-8b:ro ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve /models/cosmos-reason2-8b --max-model-len 8192 --gpu-memory-utilization 0.8 --reasoning-parser qwen3 --media-io-kwargs '{\"video\": {\"num_frames\": -1}}'"
+    install_command: |-
+      ngc registry model download-version "nim/nvidia/cosmos-reason2-8b:1208-fp8-static-kv8"
+    serve_command_orin: |-
+      sudo docker run -it --rm \
+        --runtime=nvidia --network host \
+        -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve /models/cosmos-reason2-8b \
+          --max-model-len 8192 \
+          --gpu-memory-utilization 0.8 \
+          --reasoning-parser qwen3 \
+          --media-io-kwargs '{"video": {"num_frames": -1}}'
+    serve_command_thor: |-
+      sudo docker run -it --rm \
+        --runtime=nvidia --network host \
+        -v $MODEL_PATH:/models/cosmos-reason2-8b:ro \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve /models/cosmos-reason2-8b \
+          --max-model-len 8192 \
+          --gpu-memory-utilization 0.8 \
+          --reasoning-parser qwen3 \
+          --media-io-kwargs '{"video": {"num_frames": -1}}'
   - engine: "llama.cpp"
     type: "Container"
     modules_supported:
@@ -35,9 +55,19 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin llama-server -hf Kbenkhaled/Cosmos-Reason2-8B-GGUF:Q4_K_M -c 8192"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+        ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin \
+        llama-server -hf Kbenkhaled/Cosmos-Reason2-8B-GGUF:Q4_K_M -c 8192
     run_command_nano: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin llama-server -hf Kbenkhaled/Cosmos-Reason2-8B-GGUF:Q4_K_M -c 8192"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor llama-server -hf Kbenkhaled/Cosmos-Reason2-8B-GGUF:Q4_K_M -c 8192"
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+        ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor \
+        llama-server -hf Kbenkhaled/Cosmos-Reason2-8B-GGUF:Q4_K_M -c 8192
 ---
 
 [NVIDIA Cosmos Reason 2 8B](https://huggingface.co/nvidia/Cosmos-Reason2-8B) is the larger variant in the Cosmos Reason 2 family, offering enhanced reasoning performance with 8 billion parameters. It provides stronger chain-of-thought reasoning capabilities compared to the 2B variant, suitable for more demanding vision-language tasks on Jetson.
@@ -174,3 +204,4 @@ sudo docker run -it --rm --pull always --runtime=nvidia --network host \
 
 - [NGC FP8 Checkpoint](https://catalog.ngc.nvidia.com/orgs/nim/teams/nvidia/models/cosmos-reason2-8b?version=1208-fp8-static-kv8) - FP8 quantized model for vLLM
 - [Live VLM WebUI](https://github.com/NVIDIA-AI-IOT/live-vlm-webui) - real-time webcam-to-VLM interface
+

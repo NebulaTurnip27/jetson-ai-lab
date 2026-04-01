@@ -34,8 +34,10 @@ const supportedInferenceEngineEntrySchema = z.object({
 	install_command: z.string().optional(),
 	run_command: z.string().optional(),
 	install_command_orin: z.string().optional(),
-	run_command_orin: z.string().optional(),
+	serve_command_orin: z.string().optional(),
 	install_command_thor: z.string().optional(),
+	serve_command_thor: z.string().optional(),
+	run_command_orin: z.string().optional(),
 	run_command_thor: z.string().optional(),
 	modules_supported: z.array(z.string()).optional(),
 	run_commands_by_module: z.record(z.string()).optional(),
@@ -48,6 +50,8 @@ const servingEntrySchema = z.object({
 	modules_supported: z.array(z.string()).optional(),
 	install_command: z.string().optional(),
 	run_command: z.string().optional(),
+	serve_command_orin: z.string().optional(),
+	serve_command_thor: z.string().optional(),
 	run_command_orin: z.string().optional(),
 	run_command_thor: z.string().optional(),
 	run_commands_by_module: z.record(z.string()).optional(),
@@ -69,6 +73,8 @@ const modelsSchema = z.object({
 	hide_run_button: z.boolean().optional(),
 	order: z.number().optional(),
 	type: z.string().optional(),
+	/** True if the model accepts image/video (or other visual) inputs — VLM / vision-capable. */
+	vision_capable: z.boolean(),
 	hf_checkpoint: z.string().optional(),
 	huggingface_url: z.string().url().optional(),
 	build_nvidia_url: z.string().url().optional(),
@@ -94,6 +100,8 @@ const modelsSchema = z.object({
 	one_shot_inference: z
 		.object({
 			modules_supported: z.array(z.string()).optional(),
+			run_command_orin: z.string().optional(),
+			run_command_thor: z.string().optional(),
 			shell: z.string().optional(),
 			python: z.string().optional(),
 			intro: z.string().optional(),
@@ -120,7 +128,9 @@ const models = defineCollection({
 		const os = data.one_shot_inference;
 		const hasEval =
 			!!os &&
-			(!!os.shell?.trim() ||
+			(!!os.run_command_orin?.trim() ||
+				!!os.run_command_thor?.trim() ||
+				!!os.shell?.trim() ||
 				!!os.python?.trim() ||
 				!!(os.shell_by_module && Object.values(os.shell_by_module).some((s) => String(s).trim())) ||
 				!!(os.python_by_module && Object.values(os.python_by_module).some((s) => String(s).trim())));

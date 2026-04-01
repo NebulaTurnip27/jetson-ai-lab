@@ -17,7 +17,7 @@ interface Props {
 	modelSlug: string;
 	hfCheckpoint?: string;
 	clientCall?: ClientCallFrontmatter | null;
-	/** Merged onto the root section (e.g. stack with Serve panel under one background) */
+	/** Merged onto the root section (e.g. stack with serve section under one background) */
 	sectionClass?: string;
 }
 
@@ -75,31 +75,23 @@ const showCallApiStyleTabs =
 	);
 ---
 
-<section
+<div
 	id="call-model"
 	class:list={[
 		'py-16 bg-white border-b border-nvidia-gray-200 scroll-mt-20',
 		sectionClass,
 	]}
+	role="region"
 	aria-labelledby="call-model-heading"
 	data-model-slug={modelSlug}
 	data-default-inference-engine={engines[0]?.engine ?? ''}
 >
 	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-		<h2 id="call-model-heading" class="text-3xl font-bold text-nvidia-black mb-2">
-			Call the model
-		</h2>
+		<h3 id="call-model-heading" class="text-2xl font-bold text-nvidia-black mb-2">
+			Call the model over Web API
+		</h3>
 		<p class="text-sm text-nvidia-gray-600 mb-8">
-			Set connection parameters on the left, then use the examples on the right (this machine or another host on the
-			network). Generated snippets match the <strong>Inference engine</strong> you select in Serve this model above.
-			When both shell and Python examples exist, pick <strong>Shell</strong> or <strong>Python</strong> first —{' '}
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">curl</code> vs the OpenAI SDK or{' '}
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">urllib</code> (
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">pip install openai</code> for /v1). When Ollama is
-			selected, use <strong>OpenAI-compatible API</strong> vs <strong>Ollama API</strong> (to the right) to switch
-			between <code class="text-xs bg-nvidia-gray-100 px-1 rounded">/v1/chat/completions</code> and native{' '}
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">/api/generate</code>. Ports and model ids must match your
-			running server.
+			Copy the command below and paste into your terminal to make a Web API request to the model you just served.
 		</p>
 
 		{ccIntro && fromFrontmatter.length > 0 && (
@@ -351,7 +343,7 @@ const showCallApiStyleTabs =
 
 				function readEngineFromServePanel(): string | null {
 					const btn = document.querySelector(
-						'#serve-model .engine-rail-btn[aria-selected="true"]',
+						'[data-inference-matrix-root] .engine-rail-btn[aria-selected="true"]',
 					) as HTMLButtonElement | null;
 					const eng = btn?.getAttribute('data-engine')?.trim();
 					return eng || null;

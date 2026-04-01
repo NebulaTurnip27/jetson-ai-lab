@@ -7,6 +7,7 @@ icon: "⚡"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "32GB RAM"
 precision: "FP4"
 model_size: "17GB"
@@ -25,7 +26,7 @@ serving:
         - thor_t4000
         - orin_agx_64
         - orin_nx_16
-      run_command_orin: |-
+      serve_command_orin: |-
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -v $HOME/.cache/huggingface:/root/.cache/huggingface \
@@ -33,7 +34,7 @@ serving:
           vllm serve stelterlab/NVIDIA-Nemotron-3-Nano-30B-A3B-AWQ \
             --gpu-memory-utilization 0.8 \
             --trust-remote-code
-      run_command_thor: |-
+      serve_command_thor: |-
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -e HF_TOKEN=$HF_TOKEN \
@@ -61,8 +62,17 @@ serving:
         - orin_agx_64
         - orin_nx_16
         - orin_nano_8
-      run_command_orin: ollama run nemotron-3-nano
-      run_command_thor: ollama run nemotron-3-nano
+      serve_command_orin: ollama pull nemotron-3-nano && ollama serve
+      serve_command_thor: ollama pull nemotron-3-nano && ollama serve
+one_shot_inference:
+  modules_supported:
+    - thor_t5000
+    - thor_t4000
+    - orin_agx_64
+    - orin_nx_16
+    - orin_nano_8
+  run_command_orin: ollama run nemotron-3-nano
+  run_command_thor: ollama run nemotron-3-nano
 ---
 
 **Note:** The Thor command requires a [Hugging Face access token](https://huggingface.co/settings/tokens) with access to the gated NVFP4 checkpoint. The Orin command uses a community AWQ checkpoint that does not require authentication. If you see *"Free memory on device … is less than desired GPU memory utilization"*, lower `--gpu-memory-utilization` in the Advanced options.

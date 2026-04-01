@@ -14,6 +14,8 @@ export type ServingEntryInput = {
 	modules_supported?: string[];
 	install_command?: string;
 	run_command?: string;
+	serve_command_orin?: string;
+	serve_command_thor?: string;
 	run_command_orin?: string;
 	run_command_thor?: string;
 	run_commands_by_module?: Record<string, string>;
@@ -25,6 +27,8 @@ export function servingEntryToSupportedEngine(e: ServingEntryInput): SupportedEn
 		type: e.type ?? 'Container',
 		install_command: e.install_command,
 		run_command: e.run_command,
+		serve_command_orin: e.serve_command_orin,
+		serve_command_thor: e.serve_command_thor,
 		run_command_orin: e.run_command_orin,
 		run_command_thor: e.run_command_thor,
 		install_command_orin: undefined,

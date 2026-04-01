@@ -7,6 +7,7 @@ icon: "🔮"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "4GB RAM"
 precision: "W4A16"
 model_size: "2.5GB"
@@ -32,8 +33,16 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve RedHatAI/Qwen3-4B-quantized.w4a16"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve RedHatAI/Qwen3-4B-quantized.w4a16"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve RedHatAI/Qwen3-4B-quantized.w4a16
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve RedHatAI/Qwen3-4B-quantized.w4a16
 ---
 
 Qwen3 is Alibaba Cloud's latest generation of large language models, offering state-of-the-art performance across a wide range of tasks. The Qwen3 4B model provides an excellent balance of capability and efficiency for edge deployment.
@@ -51,3 +60,4 @@ Qwen3 is Alibaba Cloud's latest generation of large language models, offering st
 - **Subject Matter Experts**: Fine-tuning for domain-specific expertise
 - **Multilingual Instruction Following**: Following instructions across 100+ languages
 - **Translation**: High-quality translation between supported languages
+

@@ -42,6 +42,8 @@ const collectionModels = modelEntries.map(entry => {
     hf_checkpoint: entry.data.hf_checkpoint,
     hideRunButton: entry.data.hide_run_button ?? false,
     matrix_modules_disabled: entry.data.matrix_modules_disabled,
+    vision_capable: entry.data.vision_capable,
+    one_shot_inference: entry.data.one_shot_inference,
   };
 });
 
@@ -95,10 +97,13 @@ const families = Array.from(new Set(models.map(m => m.family)))
               >
                 <article class="group flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden">
                   <div class="p-6 flex flex-col h-full">
-                    <div class="mb-4">
+                    <div class="mb-4 flex flex-wrap items-center gap-2">
                       <h3 class="text-lg font-bold text-slate-900 group-hover:text-nvidia-green transition-colors line-clamp-1">
                         {model.name}
                       </h3>
+                      {model.vision_capable && (
+                        <span class="bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shrink-0" title="Vision-language model">VLM</span>
+                      )}
                     </div>
                     
                     <p class="text-slate-600 text-sm leading-relaxed mb-6 line-clamp-3 flex-grow">

@@ -7,6 +7,7 @@ icon: "⚡"
 is_new: false
 order: 0
 type: "Text"
+vision_capable: false
 memory_requirements: "4GB RAM"
 precision: "Q4_K_M GGUF"
 model_size: "2.5GB"
@@ -22,8 +23,28 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin llama-server --hf-repo nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF --hf-file NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf --ctx-size 8196 --alias my_model --n-gpu-layers 999"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor llama-server --hf-repo nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF --hf-file NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf --ctx-size 8196 --alias my_model --n-gpu-layers 999"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+        ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin \
+        llama-server \
+          --hf-repo nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF \
+          --hf-file NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf \
+          --ctx-size 8196 \
+          --alias my_model \
+          --n-gpu-layers 999
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+        ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor \
+        llama-server \
+          --hf-repo nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF \
+          --hf-file NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf \
+          --ctx-size 8196 \
+          --alias my_model \
+          --n-gpu-layers 999
 ---
 
 Nemotron3 Nano 4B is a compact NVIDIA language model that can be served locally on Jetson with `llama.cpp`, giving Jetson Orin and Jetson Thor day-0 support through a simple OpenAI-compatible `llama-server` workflow.
@@ -47,3 +68,4 @@ This model is currently configured for `llama.cpp` using the GGUF checkpoint `NV
 
 - The provided command uses `--alias my_model`; you can change that alias to match your application if needed.
 - `--n-gpu-layers 999` keeps the full model on GPU when memory allows for best performance.
+

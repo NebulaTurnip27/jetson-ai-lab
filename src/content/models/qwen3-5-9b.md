@@ -7,6 +7,7 @@ icon: "🔮"
 is_new: false
 order: 3
 type: "Multimodal"
+vision_capable: true
 memory_requirements: "8GB RAM"
 precision: "NVFP4 / W4A16"
 model_size: "5GB"
@@ -22,8 +23,26 @@ supported_inference_engines:
       - thor_t4000
       - orin_agx_64
       - orin_nx_16
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve Kbenkhaled/Qwen3.5-9B-quantized.w4a16 --gpu-memory-utilization 0.8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve Kbenkhaled/Qwen3.5-9B-NVFP4 --gpu-memory-utilization 0.8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve Kbenkhaled/Qwen3.5-9B-quantized.w4a16 \
+          --gpu-memory-utilization 0.8 \
+          --enable-prefix-caching \
+          --reasoning-parser qwen3 \
+          --enable-auto-tool-choice \
+          --tool-call-parser qwen3_coder
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve Kbenkhaled/Qwen3.5-9B-NVFP4 \
+          --gpu-memory-utilization 0.8 \
+          --enable-prefix-caching \
+          --reasoning-parser qwen3 \
+          --enable-auto-tool-choice \
+          --tool-call-parser qwen3_coder
 ---
 
 Qwen3.5 9B is a dense vision-language model in the Qwen3.5 family aimed at stronger reasoning, visual understanding, and agentic behavior on Jetson. This entry uses a W4A16 checkpoint on Jetson Orin and an NVFP4 checkpoint on Jetson Thor.
@@ -46,3 +65,4 @@ Qwen3.5 9B is a dense vision-language model in the Qwen3.5 family aimed at stron
 - [Original Model](https://huggingface.co/Qwen/Qwen3.5-9B) - Base Qwen3.5 9B checkpoint
 - [W4A16 Checkpoint](https://huggingface.co/Kbenkhaled/Qwen3.5-9B-quantized.w4a16) - Jetson Orin checkpoint
 - [NVFP4 Checkpoint](https://huggingface.co/Kbenkhaled/Qwen3.5-9B-NVFP4) - Jetson Thor checkpoint
+

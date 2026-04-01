@@ -7,6 +7,7 @@ icon: "🦙"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "4GB RAM"
 precision: "W4A16"
 model_size: "2.0GB"
@@ -32,8 +33,10 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    install_command: "curl -fsSL https://ollama.ai/install.sh | sh"
-    run_command: "ollama run llama3.2:3b"
+    install_command: |-
+      curl -fsSL https://ollama.ai/install.sh | sh
+    serve_command_orin: ollama pull llama3.2:3b && ollama serve
+    serve_command_thor: ollama pull llama3.2:3b && ollama serve
   - engine: "vLLM"
     type: "Container"
     modules_supported:
@@ -42,11 +45,29 @@ supported_inference_engines:
       - orin_agx_64
       - orin_nx_16
       - orin_nano_8
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve espressor/meta-llama.Llama-3.2-3B-Instruct_W4A16"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve espressor/meta-llama.Llama-3.2-3B-Instruct_W4A16"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve espressor/meta-llama.Llama-3.2-3B-Instruct_W4A16
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve espressor/meta-llama.Llama-3.2-3B-Instruct_W4A16
+one_shot_inference:
+  modules_supported:
+    - thor_t5000
+    - thor_t4000
+    - orin_agx_64
+    - orin_nx_16
+    - orin_nano_8
+  run_command_orin: ollama run llama3.2:3b
+  run_command_thor: ollama run llama3.2:3b
 ---
 
 Meta's Llama 3.2 3B is a compact yet capable language model optimized for edge deployment. With just 3 billion parameters, it offers an excellent balance between performance and resource efficiency.
 
 Perfect for Jetson Orin Nano and other memory-constrained deployments while still delivering strong instruction-following capabilities.
+
 

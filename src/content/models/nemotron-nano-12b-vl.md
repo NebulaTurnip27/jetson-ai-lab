@@ -7,6 +7,7 @@ icon: "⚡"
 is_new: false
 order: 3
 type: "Multimodal"
+vision_capable: true
 memory_requirements: "16GB RAM"
 precision: "NVFP4-QAD"
 model_size: "8GB"
@@ -20,7 +21,11 @@ supported_inference_engines:
     modules_supported:
       - thor_t5000
       - thor_t4000
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-NVFP4-QAD"
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-NVFP4-QAD
 ---
 
 NVIDIA Nemotron Nano 12B VL is a vision-language model capable of understanding images and text, with support for chain-of-thought reasoning across multimodal inputs.
@@ -42,4 +47,5 @@ NVIDIA Nemotron Nano 12B VL is a vision-language model capable of understanding 
 ## Supported Languages
 
 English, German, Spanish, French, Italian, Korean, Portuguese, Russian, Japanese, Chinese.
+
 

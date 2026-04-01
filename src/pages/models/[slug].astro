@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import InferenceCommandsPanel from '../../components/InferenceCommandsPanel.astro';
+import ModelServeSection from '../../components/ModelServeSection.astro';
 import ModelCallSection from '../../components/ModelCallSection.astro';
 import ModelBenchmarkSection from '../../components/ModelBenchmarkSection.astro';
 import ModelOneShotSection from '../../components/ModelOneShotSection.astro';
@@ -24,11 +24,16 @@ const huggingfaceUrl = data.huggingface_url || (data.hf_checkpoint ? `https://hu
 
 const sortedEngines = sortEnginesForUi(getSupportedInferenceEngines(data));
 
-const inferenceNeedsHfToken = sortedEngines.some((e) =>
-  (e.run_command_orin && e.run_command_orin.includes('HF_TOKEN')) ||
-  (e.run_command_thor && e.run_command_thor.includes('HF_TOKEN')) ||
-  (e.run_command && e.run_command.includes('HF_TOKEN'))
-);
+const inferenceNeedsHfToken = sortedEngines.some((e) => {
+  const cmds = [
+    e.serve_command_orin,
+    e.serve_command_thor,
+    e.run_command_orin,
+    e.run_command_thor,
+    e.run_command,
+  ];
+  return cmds.some((c) => c && c.includes('HF_TOKEN'));
+});
 ---
 
 <Layout title={data.title} description={data.short_description}>
@@ -71,6 +76,10 @@ const inferenceNeedsHfToken = sortedEngines.some((e) =>
               <span class="text-nvidia-gray-300 font-medium">Precision</span>
               <span class="font-bold text-nvidia-white">{data.precision}</span>
             </div>
+            <div class="flex justify-between items-center py-3 border-b border-nvidia-gray-700">
+              <span class="text-nvidia-gray-300 font-medium">Vision (VLM)</span>
+              <span class="font-bold text-nvidia-white">{data.vision_capable ? 'Yes' : 'No'}</span>
+            </div>
             <div class="flex justify-between items-center py-3">
               <span class="text-nvidia-gray-300 font-medium">Size</span>
               <span class="font-bold text-nvidia-white">{data.model_size}</span>
@@ -83,29 +92,38 @@ const inferenceNeedsHfToken = sortedEngines.some((e) =>
 
   {!data.hide_run_button && sortedEngines.length > 0 && (
     <div id="run-on-jetson" class="scroll-mt-20">
-      <div class="bg-nvidia-gray-50 border-b border-nvidia-gray-200 relative overflow-hidden">
+      <section
+        id="serve-model-and-call"
+        class="bg-nvidia-gray-50 border-b border-nvidia-gray-200 relative overflow-hidden scroll-mt-20"
+        aria-labelledby="serve-the-model-heading"
+      >
         <div
           class="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.12]"
           style="background-image: url('/images/inference-call-band.png');"
           aria-hidden="true"
         />
         <div class="relative z-[1]">
-          <InferenceCommandsPanel
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
+            <h2 id="serve-the-model-heading" class="text-3xl font-bold text-nvidia-black mb-0">
+              Serve the model
+            </h2>
+          </div>
+          <ModelServeSection
             modelSlug={entry.slug}
             engines={sortedEngines}
             needsHfToken={inferenceNeedsHfToken}
             matrixModulesDisabled={data.matrix_modules_disabled}
-            sectionClass="!bg-transparent !border-b-0 !scroll-mt-0 pt-16 pb-8"
+            sectionClass="!bg-transparent !border-b-0 !scroll-mt-0 pt-8 pb-8"
           />
           <ModelCallSection
             modelSlug={entry.slug}
             engines={sortedEngines}
             hfCheckpoint={data.hf_checkpoint}
             clientCall={data.client_call}
-            sectionClass="!bg-transparent !border-b-0 border-t border-nvidia-gray-200/80 scroll-mt-20 pt-10 pb-16"
+            sectionClass="!bg-transparent !border-b-0 !border-t-0 !scroll-mt-0 pt-10 pb-16"
           />
         </div>
-      </div>
+      </section>
       <ModelOneShotSection oneShot={data.one_shot_inference} modelSlug={entry.slug} />
       {data.benchmark && (
         <ModelBenchmarkSection benchmark={data.benchmark} engines={sortedEngines} />

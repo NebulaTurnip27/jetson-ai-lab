@@ -8,8 +8,13 @@ export interface SupportedEngineEntry {
 	install_command?: string;
 	run_command?: string;
 	install_command_orin?: string;
-	run_command_orin?: string;
+	/** Long-running serve command (vLLM serve, `ollama serve`, etc.). Preferred over legacy `run_command_orin`. */
+	serve_command_orin?: string;
 	install_command_thor?: string;
+	serve_command_thor?: string;
+	/** @deprecated Prefer `serve_command_orin`; still accepted as fallback for serve matrix. */
+	run_command_orin?: string;
+	/** @deprecated Prefer `serve_command_thor`. */
 	run_command_thor?: string;
 	/** If set and non-empty, only these matrix module ids are enabled for this engine (others grayed). */
 	modules_supported?: string[];
@@ -186,7 +191,7 @@ function combineInstallAndRunBody(
 	if (install) combined += `# Installation\n${install}`;
 	if (runBody?.trim()) {
 		if (combined) combined += '\n\n';
-		combined += `# Run Command\n${runBody.trim()}`;
+		combined += `# Serve command\n${runBody.trim()}`;
 	}
 	return combined;
 }
@@ -213,13 +218,13 @@ export function combineInstallRunForPlatform(
 			: (e.install_command_orin ?? e.install_command);
 	const run =
 		platform === 'thor'
-			? (e.run_command_thor ?? e.run_command)
-			: (e.run_command_orin ?? e.run_command);
+			? (e.serve_command_thor ?? e.run_command_thor ?? e.run_command)
+			: (e.serve_command_orin ?? e.run_command_orin ?? e.run_command);
 	let combined = '';
 	if (install) combined += `# Installation\n${install}`;
 	if (run) {
 		if (combined) combined += '\n\n';
-		combined += `# Run Command\n${run}`;
+		combined += `# Serve command\n${run}`;
 	}
 	return combined;
 }

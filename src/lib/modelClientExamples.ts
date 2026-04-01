@@ -10,7 +10,14 @@ function normEngine(name: string): string {
 }
 
 function pickRunSample(e: SupportedEngineEntry): string {
-	return e.run_command_orin || e.run_command_thor || e.run_command || '';
+	return (
+		e.serve_command_orin ||
+		e.serve_command_thor ||
+		e.run_command_orin ||
+		e.run_command_thor ||
+		e.run_command ||
+		''
+	);
 }
 
 /** Normalized `engine` field from model front matter — matches inference panel selection. */

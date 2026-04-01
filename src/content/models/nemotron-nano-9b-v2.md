@@ -7,6 +7,7 @@ icon: "⚡"
 is_new: false
 order: 2
 type: "Text"
+vision_capable: false
 memory_requirements: "12GB RAM"
 precision: "NVFP4"
 model_size: "6GB"
@@ -20,7 +21,11 @@ supported_inference_engines:
     modules_supported:
       - thor_t5000
       - thor_t4000
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve nvidia/NVIDIA-Nemotron-Nano-9B-v2-NVFP4"
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve nvidia/NVIDIA-Nemotron-Nano-9B-v2-NVFP4
 ---
 
 NVIDIA Nemotron Nano 9B v2 is a quantized large language model trained from scratch by NVIDIA, designed as a unified model for both reasoning and non-reasoning tasks. It generates a reasoning trace before concluding with a final response, with configurable reasoning via system prompt.
@@ -52,4 +57,5 @@ The model uses a hybrid architecture:
 English, German, Spanish, French, Italian, Japanese, and coding languages.
 
 *This model is ready for commercial use.*
+
 

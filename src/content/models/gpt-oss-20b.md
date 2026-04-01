@@ -7,6 +7,7 @@ icon: "🤖"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "16GB RAM"
 precision: "W4A16"
 model_size: "12GB"
@@ -27,14 +28,14 @@ supported_inference_engines:
         -O $HOME/.cache/tiktoken/cl100k_base.tiktoken
       wget -q https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken \
         -O $HOME/.cache/tiktoken/o200k_base.tiktoken
-    run_command_orin: |-
+    serve_command_orin: |-
       sudo docker run -it --rm --pull always --runtime=nvidia --network host \
         -v $HOME/.cache/huggingface:/root/.cache/huggingface \
         -v $HOME/.cache/tiktoken:/etc/encodings \
         -e TIKTOKEN_ENCODINGS_BASE=/etc/encodings \
         ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
         vllm serve openai/gpt-oss-20b --gpu-memory-utilization 0.8
-    run_command_thor: |-
+    serve_command_thor: |-
       sudo docker run -it --rm --pull always --runtime=nvidia --network host \
         -v $HOME/.cache/huggingface:/root/.cache/huggingface \
         -v $HOME/.cache/tiktoken:/etc/encodings \

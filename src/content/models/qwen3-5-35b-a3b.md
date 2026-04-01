@@ -7,6 +7,7 @@ icon: "🔮"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "20GB RAM"
 precision: "NVFP4 / W4A16"
 model_size: "18GB"
@@ -21,8 +22,26 @@ supported_inference_engines:
       - thor_t5000
       - thor_t4000
       - orin_agx_64
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve Kbenkhaled/Qwen3.5-35B-A3B-quantized.w4a16 --gpu-memory-utilization 0.8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve Kbenkhaled/Qwen3.5-35B-A3B-NVFP4 --gpu-memory-utilization 0.8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder"
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve Kbenkhaled/Qwen3.5-35B-A3B-quantized.w4a16 \
+          --gpu-memory-utilization 0.8 \
+          --enable-prefix-caching \
+          --reasoning-parser qwen3 \
+          --enable-auto-tool-choice \
+          --tool-call-parser qwen3_coder
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve Kbenkhaled/Qwen3.5-35B-A3B-NVFP4 \
+          --gpu-memory-utilization 0.8 \
+          --enable-prefix-caching \
+          --reasoning-parser qwen3 \
+          --enable-auto-tool-choice \
+          --tool-call-parser qwen3_coder
 benchmark:
   orin:
     concurrency1: 30
@@ -103,3 +122,4 @@ This model supports **Multi-Token Prediction (MTP)** speculative decoding, which
 - [Hugging Face Model](https://huggingface.co/Qwen/Qwen3.5-35B-A3B) - Original model weights
 - [NVFP4 Checkpoint (Thor)](https://huggingface.co/Kbenkhaled/Qwen3.5-35B-A3B-NVFP4) - Quantized for Jetson Thor
 - [W4A16 Checkpoint (Orin)](https://huggingface.co/Kbenkhaled/Qwen3.5-35B-A3B-quantized.w4a16) - Quantized for Jetson Orin
+
