@@ -413,8 +413,8 @@ const families = Array.from(new Set(models.map(m => m.family)))
                       )}
                     </td>
                   ))}
-                  <td class="px-3 py-2.5 align-middle text-right whitespace-nowrap">
-                    <div class="inline-flex items-center justify-end gap-2 flex-wrap">
+                  <td class="px-3 py-2.5 align-middle whitespace-nowrap">
+                    <div class="flex items-center justify-end gap-2 flex-wrap">
                       {!model.hideRunButton &&
                         (model.supported_inference_engines.length > 0 || oneShotHasRunModalContent(model.one_shot_inference)) && (
                           <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} oneShotInference={model.one_shot_inference} />
