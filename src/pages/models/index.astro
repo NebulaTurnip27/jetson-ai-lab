@@ -5,9 +5,14 @@ import Layout from '../../layouts/Layout.astro';
 import RunCommand from '../../components/RunCommand.astro';
 import ModelPerformanceCharts from '../../components/ModelPerformanceCharts.astro';
 import llmBenchmarks from '../../data/benchmarks.json';
-import { JETSON_MATRIX_MODULES, matrixRunnableModuleIdsForModel } from '../../lib/inferenceCommands';
+import { JETSON_MATRIX_MODULES } from '../../lib/inferenceCommands';
 import { oneShotHasRunModalContent } from '../../lib/evalRunModal';
 import { getSupportedInferenceEngines, sortEnginesForUi } from '../../lib/modelFrontmatterAdapter';
+import {
+  CATALOG_ENGINE_FILTERS,
+  catalogEngineUiIdsForModel,
+  catalogModuleIdsForModel,
+} from '../../lib/catalogModelFilters';
 
 function modelTypeToInferenceCategory(type: string | undefined): InferenceCategory {
   const t = type || 'Other';
@@ -21,6 +26,19 @@ const moduleFilterOptions = JETSON_MATRIX_MODULES.filter((m) => m.showInMatrixUi
 const modelEntries = await getCollection('models');
 const collectionModels = modelEntries.map(entry => {
   const engines = getSupportedInferenceEngines(entry.data);
+  const category = modelTypeToInferenceCategory(entry.data.type);
+  const catalog_modules = catalogModuleIdsForModel(
+    category,
+    engines,
+    entry.data.matrix_modules_disabled,
+    entry.data.one_shot_inference
+  );
+  const catalog_engine_ui_ids = catalogEngineUiIdsForModel(
+    category,
+    engines,
+    entry.data.matrix_modules_disabled,
+    entry.data.one_shot_inference
+  );
   return {
     id: entry.slug,
     name: entry.data.title,
@@ -34,11 +52,8 @@ const collectionModels = modelEntries.map(entry => {
     status: entry.data.is_new ? 'new' : 'stable',
     highlighted: entry.data.is_new,
     supported_inference_engines: sortEnginesForUi(engines),
-    supported_matrix_modules: matrixRunnableModuleIdsForModel(
-      modelTypeToInferenceCategory(entry.data.type),
-      engines,
-      entry.data.matrix_modules_disabled
-    ),
+    catalog_modules,
+    catalog_engine_ui_ids,
     hf_checkpoint: entry.data.hf_checkpoint,
     hideRunButton: entry.data.hide_run_button ?? false,
     matrix_modules_disabled: entry.data.matrix_modules_disabled,
@@ -63,6 +78,7 @@ const familyOrder: Record<string, number> = {
 };
 const families = Array.from(new Set(models.map(m => m.family)))
   .sort((a, b) => (familyOrder[a] ?? 99) - (familyOrder[b] ?? 99));
+
 ---
 
 <Layout title="Models" description="Discover all generative AI models optimized for Jetson">
@@ -77,7 +93,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
       </div>
     </div>
   </section>
-  
+
   <!-- Featured Models -->
   {models.filter(m => m.highlighted).length > 0 && (
     <section class="py-12 bg-nvidia-gray-50 border-b border-nvidia-gray-200" id="featured-models-section">
@@ -86,14 +102,16 @@ const families = Array.from(new Set(models.map(m => m.family)))
           <h2 class="text-2xl font-bold text-nvidia-black">Featured Models</h2>
           <p class="text-nvidia-gray-600 mt-1">Latest releases with day-0 support on Jetson</p>
         </div>
-        
+
         <div class="relative -mx-4 px-4 sm:mx-0 sm:px-0">
           <div class="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide justify-center">
             {models.filter(m => m.highlighted).map(model => (
               <div
                 class="model-catalog-card w-[280px] sm:w-[300px] md:w-[320px] snap-center flex-shrink-0"
-                data-supported-modules={model.supported_matrix_modules.join(',')}
+                data-catalog-modules={model.catalog_modules.join(',')}
+                data-catalog-engines={model.catalog_engine_ui_ids.join(',')}
                 data-name={model.name.toLowerCase()}
+                data-category={model.category}
               >
                 <article class="group flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden">
                   <div class="p-6 flex flex-col h-full">
@@ -105,7 +123,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
                         <span class="bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shrink-0" title="Vision-language model">VLM</span>
                       )}
                     </div>
-                    
+
                     <p class="text-slate-600 text-sm leading-relaxed mb-6 line-clamp-3 flex-grow">
                       {model.description}
                     </p>
@@ -134,43 +152,96 @@ const families = Array.from(new Set(models.map(m => m.family)))
   <!-- All Models Directory -->
   <section class="py-20 bg-nvidia-white" id="directory">
     <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-        <div class="max-w-2xl">
-          <h2 class="text-4xl font-bold text-nvidia-black mb-4">All Models</h2>
-          <p class="text-xl text-nvidia-gray-600">Compact directory, grouped by model family</p>
+      <div class="mb-12 max-w-3xl">
+        <h2 class="text-4xl font-bold text-nvidia-black mb-4">All Models</h2>
+        <p class="text-xl text-nvidia-gray-600">
+          Browse by family cards or switch to a sortable table.
+        </p>
+      </div>
+
+      <div
+        id="models-directory-toolbar"
+        class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end sm:justify-between gap-3 mb-3"
+      >
+        <div class="flex flex-col gap-1">
+          <span class="text-xs font-bold text-nvidia-gray-500 uppercase tracking-wider">Directory view</span>
+          <div
+            class="inline-flex rounded-lg border border-nvidia-gray-200 bg-nvidia-gray-50 p-1"
+            role="group"
+            aria-label="Directory view mode"
+          >
+            <button
+              type="button"
+              id="models-view-cards"
+              class="models-view-toggle inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors bg-white text-nvidia-black shadow-sm"
+              data-view="cards"
+              aria-pressed="true"
+            >
+              <svg
+                class="w-3.5 h-3.5 shrink-0 opacity-90"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" />
+              </svg>
+              Cards
+            </button>
+            <button
+              type="button"
+              id="models-view-table"
+              class="models-view-toggle inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors text-nvidia-gray-600 hover:text-nvidia-black"
+              data-view="table"
+              aria-pressed="false"
+            >
+              <svg
+                class="w-3.5 h-3.5 shrink-0 opacity-90"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M12 3v18" />
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <path d="M3 9h18" />
+                <path d="M3 15h18" />
+              </svg>
+              Table
+            </button>
+          </div>
         </div>
-        
-        <div class="w-full md:max-w-xl flex flex-col gap-4">
-           <div class="relative">
-             <input 
-               type="text" 
-               id="model-search" 
-               placeholder="Search models..." 
-               class="w-full sm:w-64 pl-10 pr-4 py-2.5 rounded-lg border border-nvidia-gray-200 focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none transition-colors"
-             />
-             <svg class="w-5 h-5 text-nvidia-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-             </svg>
-           </div>
-           <fieldset class="border border-nvidia-gray-200 rounded-lg p-3 sm:p-4 bg-nvidia-gray-50/50">
-             <legend class="text-xs font-bold text-nvidia-gray-500 uppercase tracking-wider px-1">Jetson module</legend>
-             <p class="text-xs text-nvidia-gray-600 mb-3">Show models that run on <strong>any</strong> selected module (via at least one inference engine).</p>
-             <div class="flex flex-wrap gap-x-4 gap-y-2">
-               {moduleFilterOptions.map((mod) => (
-                 <label class="inline-flex items-center gap-2 text-sm text-nvidia-black cursor-pointer select-none">
-                   <input type="checkbox" value={mod.id} data-module-filter class="rounded border-nvidia-gray-300 text-nvidia-green focus:ring-nvidia-green" />
-                   <span>{mod.shortLabel}</span>
-                 </label>
-               ))}
-             </div>
-             <button type="button" id="module-filter-clear" class="mt-3 text-xs font-medium text-nvidia-green hover:underline">
-               Clear module filters
-             </button>
-           </fieldset>
+        <div id="models-search-cards-bar" class="relative w-full sm:w-64 sm:max-w-xs">
+          <label class="sr-only" for="model-search-cards">Filter by model name</label>
+          <input
+            type="text"
+            id="model-search-cards"
+            class="model-directory-search w-full pl-9 pr-3 py-2 rounded-lg border border-nvidia-gray-200 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none transition-colors"
+            placeholder="Filter by model name…"
+            autocomplete="off"
+          />
+          <svg
+            class="w-4 h-4 text-nvidia-gray-400 absolute left-3 top-2.5 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
         </div>
       </div>
 
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="models-grid">
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="models-directory-cards">
         {families.map(family => (
           <div class="model-family-group bg-nvidia-white rounded-xl border border-nvidia-gray-200 h-full flex flex-col" data-family={family}>
             <div class="px-5 py-4 border-b border-nvidia-gray-100 bg-nvidia-gray-50/50 rounded-t-xl">
@@ -182,7 +253,8 @@ const families = Array.from(new Set(models.map(m => m.family)))
                   class="model-card p-3 rounded-lg border border-transparent hover:border-nvidia-green hover:bg-nvidia-gray-50 transition-all group"
                   data-category={model.category}
                   data-name={model.name.toLowerCase()}
-                  data-supported-modules={model.supported_matrix_modules.join(',')}
+                  data-catalog-modules={model.catalog_modules.join(',')}
+                  data-catalog-engines={model.catalog_engine_ui_ids.join(',')}
                 >
                   <div class="flex w-full min-w-0 items-center justify-between gap-3">
                     <div class="flex items-center gap-2 min-w-0">
@@ -207,10 +279,161 @@ const families = Array.from(new Set(models.map(m => m.family)))
           </div>
         ))}
       </div>
+
+      <div id="models-directory-table" class="hidden -mx-4 sm:mx-0">
+        <div class="max-h-[70vh] overflow-auto border border-nvidia-gray-200 rounded-xl bg-white shadow-sm">
+          <table class="min-w-[76rem] w-full text-left text-sm">
+            <caption class="sr-only">
+              All models: filter by model name in the Model column; sort Model, Family, or VLM; use Modules and Inference
+              engines checkboxes to filter further.
+            </caption>
+            <thead class="bg-nvidia-gray-50 border-b border-nvidia-gray-200 sticky top-0 z-[1] shadow-sm">
+              <tr>
+                <th scope="col" rowspan="2" class="px-2 py-2 align-top min-w-[11rem] max-w-[14rem] border-r border-nvidia-gray-100">
+                  <div class="flex flex-col gap-2">
+                    <div class="relative w-full">
+                      <label class="sr-only" for="model-search-table">Filter by model name</label>
+                      <input
+                        type="text"
+                        id="model-search-table"
+                        class="model-directory-search w-full pl-8 pr-2 py-1.5 text-xs rounded-md border border-nvidia-gray-200 bg-white focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none transition-colors"
+                        placeholder="Model name…"
+                        autocomplete="off"
+                      />
+                      <svg
+                        class="w-3.5 h-3.5 text-nvidia-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                      </svg>
+                    </div>
+                    <button type="button" class="models-sort-btn inline-flex items-center gap-1 font-bold text-nvidia-black hover:text-nvidia-green self-start" data-sort="name">
+                      Model
+                      <span class="models-sort-ind text-nvidia-gray-400 font-normal" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </th>
+                <th scope="col" rowspan="2" class="px-3 py-3 font-bold text-nvidia-black whitespace-nowrap align-bottom">
+                  <button type="button" class="models-sort-btn inline-flex items-center gap-1 hover:text-nvidia-green" data-sort="family">
+                    Family
+                    <span class="models-sort-ind text-nvidia-gray-400 font-normal" aria-hidden="true"></span>
+                  </button>
+                </th>
+                <th scope="col" rowspan="2" class="px-3 py-3 font-bold text-nvidia-black whitespace-nowrap text-center align-bottom">
+                  <button type="button" class="models-sort-btn inline-flex items-center gap-1 hover:text-nvidia-green mx-auto" data-sort="vision">
+                    VLM
+                    <span class="models-sort-ind text-nvidia-gray-400 font-normal" aria-hidden="true"></span>
+                  </button>
+                </th>
+                <th scope="colgroup" colspan="5" class="px-2 py-2 text-center text-xs font-bold text-nvidia-black uppercase tracking-wide border-l border-nvidia-gray-200">
+                  Modules
+                </th>
+                <th scope="colgroup" colspan="4" class="px-2 py-2 text-center text-xs font-bold text-nvidia-black uppercase tracking-wide border-l border-nvidia-gray-200">
+                  Inference engines
+                </th>
+                <th scope="col" rowspan="2" class="px-3 py-3 font-bold text-nvidia-black text-right whitespace-nowrap align-bottom">Actions</th>
+              </tr>
+              <tr>
+                {moduleFilterOptions.map((mod) => (
+                  <th scope="col" class="px-1.5 py-2 text-center align-bottom border-l border-nvidia-gray-200 border-t border-nvidia-gray-100 min-w-[4.5rem]">
+                    <label class="flex flex-col items-center gap-1.5 cursor-pointer select-none">
+                      <span class="text-[10px] font-bold text-nvidia-gray-700 leading-tight text-center">{mod.shortLabel}</span>
+                      <input
+                        type="checkbox"
+                        value={mod.id}
+                        data-catalog-module-filter
+                        class="rounded border-nvidia-gray-300 text-nvidia-green focus:ring-nvidia-green shrink-0"
+                        title={`Filter: ${mod.label}`}
+                      />
+                    </label>
+                  </th>
+                ))}
+                {CATALOG_ENGINE_FILTERS.map((eng) => (
+                  <th scope="col" class="px-1.5 py-2 text-center align-bottom border-l border-nvidia-gray-200 border-t border-nvidia-gray-100 min-w-[4.5rem]">
+                    <label class="flex flex-col items-center gap-1.5 cursor-pointer select-none">
+                      <span class="text-[10px] font-bold text-nvidia-gray-700 leading-tight text-center">{eng.label}</span>
+                      <input
+                        type="checkbox"
+                        value={eng.uiId}
+                        data-catalog-engine-filter
+                        class="rounded border-nvidia-gray-300 text-nvidia-green focus:ring-nvidia-green shrink-0"
+                        title={`Filter: ${eng.label}`}
+                      />
+                    </label>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody id="models-table-body" class="divide-y divide-nvidia-gray-100">
+              {models.map((model) => (
+                <tr
+                  class="model-table-row hover:bg-nvidia-gray-50/60"
+                  data-name={model.name.toLowerCase()}
+                  data-catalog-modules={model.catalog_modules.join(',')}
+                  data-catalog-engines={model.catalog_engine_ui_ids.join(',')}
+                  data-category={model.category}
+                  data-sort-name={model.name.toLowerCase()}
+                  data-sort-family={model.family}
+                  data-sort-vision={model.vision_capable ? '1' : '0'}
+                >
+                  <td class="px-3 py-2.5 align-middle">
+                    <div class="flex flex-wrap items-center gap-2 min-w-0">
+                      <span class="font-semibold text-nvidia-black">{model.name}</span>
+                      {model.status === 'new' && (
+                        <span class="bg-nvidia-green text-nvidia-black px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide shrink-0">New</span>
+                      )}
+                    </div>
+                  </td>
+                  <td class="px-3 py-2.5 align-middle text-nvidia-gray-700 whitespace-nowrap">{model.family}</td>
+                  <td class="px-3 py-2.5 align-middle text-center">
+                    {model.vision_capable ? (
+                      <span class="inline-block bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-[10px] font-bold uppercase">VLM</span>
+                    ) : (
+                      <span class="text-nvidia-gray-400">—</span>
+                    )}
+                  </td>
+                  {moduleFilterOptions.map((mod) => (
+                    <td class="px-1 py-2 align-middle text-center border-l border-nvidia-gray-100">
+                      {model.catalog_modules.includes(mod.id) ? (
+                        <span class="text-nvidia-green font-bold" title="Serve or one-shot on this module">✓</span>
+                      ) : (
+                        <span class="text-nvidia-gray-300">—</span>
+                      )}
+                    </td>
+                  ))}
+                  {CATALOG_ENGINE_FILTERS.map((eng) => (
+                    <td class="px-1 py-2 align-middle text-center border-l border-nvidia-gray-100">
+                      {model.catalog_engine_ui_ids.includes(eng.uiId) ? (
+                        <span class="text-nvidia-green font-bold" title="Serve and/or one-shot with this engine">✓</span>
+                      ) : (
+                        <span class="text-nvidia-gray-300">—</span>
+                      )}
+                    </td>
+                  ))}
+                  <td class="px-3 py-2.5 align-middle text-right whitespace-nowrap">
+                    <div class="inline-flex items-center justify-end gap-2 flex-wrap">
+                      {!model.hideRunButton &&
+                        (model.supported_inference_engines.length > 0 || oneShotHasRunModalContent(model.one_shot_inference)) && (
+                          <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} oneShotInference={model.one_shot_inference} />
+                        )}
+                      <a href={`/models/${model.id}`} class="px-3 py-1.5 rounded-md bg-nvidia-gray-100 text-nvidia-gray-900 hover:bg-nvidia-green hover:text-nvidia-black text-xs font-semibold transition-colors">
+                        Details
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div id="no-results" class="hidden py-20 text-center">
         <div class="text-6xl mb-4">🔍</div>
         <h3 class="text-xl font-bold text-nvidia-black mb-2">No models found</h3>
-        <p class="text-nvidia-gray-600">Try adjusting your search or filters</p>
+        <p class="text-nvidia-gray-600">Try a different model name filter or clear column checkboxes in the table header</p>
       </div>
     </div>
   </section>
@@ -229,29 +452,59 @@ const families = Array.from(new Set(models.map(m => m.family)))
 </Layout>
 
 <script>
+  const MODELS_DIRECTORY_VIEW_KEY = 'jetson-ai-lab-models-directory-view';
+
+  const SORT_ATTR: Record<string, string> = {
+    name: 'data-sort-name',
+    family: 'data-sort-family',
+    vision: 'data-sort-vision',
+  };
+
   function initModelDirectoryFilters() {
     const directory = document.getElementById('directory');
     if (!directory) return;
 
-    const searchInput = document.getElementById('model-search') as HTMLInputElement | null;
     const noResults = document.getElementById('no-results');
-    const clearModuleBtn = document.getElementById('module-filter-clear');
+    const cardsSearchBar = document.getElementById('models-search-cards-bar');
     const featuredSection = document.getElementById('featured-models-section');
+    const cardsArea = document.getElementById('models-directory-cards');
+    const tableArea = document.getElementById('models-directory-table');
+    const tableBody = document.getElementById('models-table-body');
+    const btnCards = document.getElementById('models-view-cards');
+    const btnTable = document.getElementById('models-view-table');
 
     let currentSearch = '';
+    let tableSortCol = '';
+    let tableSortDir: 'asc' | 'desc' = 'asc';
 
-    function selectedModuleIds(): Set<string> {
+    function selectedCatalogModuleIds(): Set<string> {
       const s = new Set<string>();
-      directory.querySelectorAll<HTMLInputElement>('[data-module-filter]').forEach((cb) => {
+      directory.querySelectorAll<HTMLInputElement>('[data-catalog-module-filter]').forEach((cb) => {
         if (cb.checked && cb.value) s.add(cb.value);
       });
       return s;
     }
 
-    function cardMatchesModuleFilter(card: Element): boolean {
-      const sel = selectedModuleIds();
+    function selectedCatalogEngineIds(): Set<string> {
+      const s = new Set<string>();
+      directory.querySelectorAll<HTMLInputElement>('[data-catalog-engine-filter]').forEach((cb) => {
+        if (cb.checked && cb.value) s.add(cb.value);
+      });
+      return s;
+    }
+
+    function rowMatchesFilters(el: Element): boolean {
+      const name = el.getAttribute('data-name') || '';
+      const matchesSearch = !currentSearch || name.includes(currentSearch);
+      const matchesModules = elementMatchesCatalogModuleFilter(el);
+      const matchesEngines = elementMatchesCatalogEngineFilter(el);
+      return matchesSearch && matchesModules && matchesEngines;
+    }
+
+    function elementMatchesCatalogModuleFilter(el: Element): boolean {
+      const sel = selectedCatalogModuleIds();
       if (sel.size === 0) return true;
-      const raw = card.getAttribute('data-supported-modules') || '';
+      const raw = el.getAttribute('data-catalog-modules') || '';
       const ids = new Set(
         raw
           .split(',')
@@ -264,9 +517,98 @@ const families = Array.from(new Set(models.map(m => m.family)))
       return false;
     }
 
+    function elementMatchesCatalogEngineFilter(el: Element): boolean {
+      const sel = selectedCatalogEngineIds();
+      if (sel.size === 0) return true;
+      const raw = el.getAttribute('data-catalog-engines') || '';
+      const ids = new Set(
+        raw
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      );
+      for (const id of sel) {
+        if (ids.has(id)) return true;
+      }
+      return false;
+    }
+
+    function isTableView(): boolean {
+      return !!(tableArea && !tableArea.classList.contains('hidden'));
+    }
+
+    function setViewMode(mode: 'cards' | 'table') {
+      try {
+        localStorage.setItem(MODELS_DIRECTORY_VIEW_KEY, mode);
+      } catch {
+        /* ignore */
+      }
+      if (cardsArea && tableArea) {
+        if (mode === 'table') {
+          cardsArea.classList.add('hidden');
+          tableArea.classList.remove('hidden');
+        } else {
+          tableArea.classList.add('hidden');
+          cardsArea.classList.remove('hidden');
+        }
+      }
+      btnCards?.classList.toggle('bg-white', mode === 'cards');
+      btnCards?.classList.toggle('shadow-sm', mode === 'cards');
+      btnCards?.classList.toggle('text-nvidia-black', mode === 'cards');
+      btnCards?.classList.toggle('text-nvidia-gray-600', mode !== 'cards');
+      btnTable?.classList.toggle('bg-white', mode === 'table');
+      btnTable?.classList.toggle('shadow-sm', mode === 'table');
+      btnTable?.classList.toggle('text-nvidia-black', mode === 'table');
+      btnTable?.classList.toggle('text-nvidia-gray-600', mode !== 'table');
+      btnCards?.setAttribute('aria-pressed', mode === 'cards' ? 'true' : 'false');
+      btnTable?.setAttribute('aria-pressed', mode === 'table' ? 'true' : 'false');
+      if (cardsSearchBar) {
+        cardsSearchBar.classList.toggle('hidden', mode === 'table');
+      }
+    }
+
+    function updateSortIndicators(activeCol: string, dir: 'asc' | 'desc') {
+      directory.querySelectorAll('.models-sort-btn').forEach((btn) => {
+        const col = btn.getAttribute('data-sort') || '';
+        const ind = btn.querySelector('.models-sort-ind');
+        if (!ind) return;
+        if (col === activeCol) {
+          ind.textContent = dir === 'asc' ? '↑' : '↓';
+          btn.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          ind.textContent = '';
+          btn.removeAttribute('aria-sort');
+        }
+      });
+    }
+
+    function sortTableByColumn(col: string) {
+      if (!tableBody) return;
+      const attr = SORT_ATTR[col];
+      if (!attr) return;
+
+      if (tableSortCol === col) {
+        tableSortDir = tableSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        tableSortCol = col;
+        tableSortDir = 'asc';
+      }
+
+      const rows = Array.from(tableBody.querySelectorAll<HTMLTableRowElement>('.model-table-row'));
+      rows.sort((a, b) => {
+        const va = a.getAttribute(attr) || '';
+        const vb = b.getAttribute(attr) || '';
+        let cmp = va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
+        if (tableSortDir === 'desc') cmp = -cmp;
+        return cmp;
+      });
+      rows.forEach((r) => tableBody.appendChild(r));
+      updateSortIndicators(col, tableSortDir);
+    }
+
     function filterModels() {
       const modelGroups = document.querySelectorAll('.model-family-group');
-      let hasVisibleModels = false;
+      let hasVisibleInCards = false;
 
       modelGroups.forEach((group) => {
         const cards = group.querySelectorAll('.model-card');
@@ -274,14 +616,10 @@ const families = Array.from(new Set(models.map(m => m.family)))
 
         cards.forEach((card) => {
           const el = card as HTMLElement;
-          const name = el.getAttribute('data-name') || '';
-          const matchesSearch = !currentSearch || name.includes(currentSearch);
-          const matchesModules = cardMatchesModuleFilter(card);
-
-          if (matchesSearch && matchesModules) {
+          if (rowMatchesFilters(card)) {
             el.style.display = '';
             visibleCardsInGroup++;
-            hasVisibleModels = true;
+            hasVisibleInCards = true;
           } else {
             el.style.display = 'none';
           }
@@ -290,37 +628,90 @@ const families = Array.from(new Set(models.map(m => m.family)))
         (group as HTMLElement).style.display = visibleCardsInGroup > 0 ? 'flex' : 'none';
       });
 
+      let hasVisibleInTable = false;
+      document.querySelectorAll<HTMLTableRowElement>('.model-table-row').forEach((row) => {
+        if (rowMatchesFilters(row)) {
+          row.style.display = '';
+          hasVisibleInTable = true;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
       if (featuredSection) {
         let anyFeatured = false;
         featuredSection.querySelectorAll<HTMLElement>('.model-catalog-card').forEach((wrap) => {
           const name = wrap.getAttribute('data-name') || '';
           const matchesSearch = !currentSearch || name.includes(currentSearch);
-          const matchesModules = cardMatchesModuleFilter(wrap);
-          const show = matchesSearch && matchesModules;
+          const matchesModules = elementMatchesCatalogModuleFilter(wrap);
+          const matchesEngines = elementMatchesCatalogEngineFilter(wrap);
+          const show = matchesSearch && matchesModules && matchesEngines;
           wrap.style.display = show ? '' : 'none';
           if (show) anyFeatured = true;
         });
         featuredSection.classList.toggle('hidden', !anyFeatured);
       }
 
-      noResults?.classList.toggle('hidden', hasVisibleModels);
+      const activeHasModels = isTableView() ? hasVisibleInTable : hasVisibleInCards;
+      const anyShown = activeHasModels || (featuredSection && !featuredSection.classList.contains('hidden'));
+      noResults?.classList.toggle('hidden', anyShown);
     }
 
     if (directory.dataset.modelsFilterListeners !== '1') {
       directory.dataset.modelsFilterListeners = '1';
-      searchInput?.addEventListener('input', (e) => {
-        currentSearch = (e.target as HTMLInputElement).value.toLowerCase().trim();
+
+      let initial: 'cards' | 'table' = 'cards';
+      try {
+        const v = localStorage.getItem(MODELS_DIRECTORY_VIEW_KEY);
+        if (v === 'table' || v === 'cards') initial = v;
+      } catch {
+        /* ignore */
+      }
+      setViewMode(initial);
+
+      directory.querySelectorAll<HTMLInputElement>('.model-directory-search').forEach((input) => {
+        input.addEventListener('input', () => {
+          const v = input.value;
+          currentSearch = v.toLowerCase().trim();
+          directory.querySelectorAll<HTMLInputElement>('.model-directory-search').forEach((other) => {
+            if (other !== input) other.value = v;
+          });
+          filterModels();
+        });
+      });
+      const firstSearch = directory.querySelector<HTMLInputElement>('.model-directory-search');
+      if (firstSearch) currentSearch = firstSearch.value.toLowerCase().trim();
+
+      btnCards?.addEventListener('click', () => {
+        setViewMode('cards');
+        filterModels();
+      });
+      btnTable?.addEventListener('click', () => {
+        setViewMode('table');
         filterModels();
       });
       directory.addEventListener('change', (e) => {
-        const t = e.target as HTMLElement | null;
-        if (t?.matches?.('[data-module-filter]')) filterModels();
+        const t = e.target as HTMLInputElement | null;
+        if (t?.matches?.('[data-catalog-module-filter]')) {
+          const v = t.value;
+          directory.querySelectorAll<HTMLInputElement>('[data-catalog-module-filter]').forEach((cb) => {
+            if (cb.value === v) cb.checked = t.checked;
+          });
+        } else if (t?.matches?.('[data-catalog-engine-filter]')) {
+          const v = t.value;
+          directory.querySelectorAll<HTMLInputElement>('[data-catalog-engine-filter]').forEach((cb) => {
+            if (cb.value === v) cb.checked = t.checked;
+          });
+        }
+        if (t?.matches?.('[data-catalog-module-filter], [data-catalog-engine-filter]')) {
+          filterModels();
+        }
       });
-      clearModuleBtn?.addEventListener('click', () => {
-        directory.querySelectorAll<HTMLInputElement>('[data-module-filter]').forEach((cb) => {
-          cb.checked = false;
+      directory.querySelectorAll('.models-sort-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const col = btn.getAttribute('data-sort');
+          if (col) sortTableByColumn(col);
         });
-        filterModels();
       });
     }
 
