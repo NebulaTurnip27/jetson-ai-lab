@@ -241,6 +241,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         clearVllmFieldsInInferenceBrowserPrefs,
         normalizeInferenceEngineKey,
       } from '../lib/inferenceBrowserPrefs';
+      import {
+        applyMatrixModuleTabDisabledVisual,
+        clearMatrixModuleTabDisabledVisual,
+        syncMatrixEngineRailSelection,
+        syncMatrixModuleTabSelection,
+      } from '../lib/matrixUiSync';
 
       (function () {
         function qs(root, sel) { return root.querySelector(sel); }
@@ -719,20 +725,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           if (!meta.useMatrix) return;
           var ae = modal.getAttribute('data-active-engine') || '';
           var aeNorm = normalizeInferenceEngineKey(ae);
-          modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
-            var on = normalizeInferenceEngineKey(btn.getAttribute('data-run-engine-btn') || '') === aeNorm;
-            btn.setAttribute('aria-selected', on ? 'true' : 'false');
-            btn.classList.toggle('!border-b-nvidia-green', on);
-            btn.classList.toggle('lg:!border-l-nvidia-green', on);
-            btn.classList.toggle('text-nvidia-green', on);
-            btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
-            btn.classList.toggle('border-b-transparent', !on);
-            btn.classList.toggle('lg:border-l-transparent', !on);
-            btn.classList.toggle('text-gray-500', !on);
-            btn.classList.toggle('hover:text-nvidia-black', !on);
-            btn.classList.toggle('hover:border-b-gray-300', !on);
-            btn.classList.toggle('lg:hover:border-l-gray-300', !on);
-          });
+          syncMatrixEngineRailSelection(
+            modal.querySelectorAll('[data-run-engine-btn]'),
+            function (btn) {
+              return normalizeInferenceEngineKey(btn.getAttribute('data-run-engine-btn') || '') === aeNorm;
+            },
+            'run-modal',
+          );
         }
 
         function updateRunModalModuleTabAvailability(modal, meta) {
@@ -763,28 +762,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             var dis = global || engOff;
             btn.disabled = dis;
             if (dis) {
-              btn.classList.add('cursor-not-allowed', 'bg-[#999999]', 'text-nvidia-black', 'border-b-transparent', 'pointer-events-none');
-              btn.classList.remove(
-                'bg-nvidia-green/25',
-                'border-b-nvidia-green',
-                '!border-b-nvidia-green',
-                'ring-1',
-                'ring-inset',
-                'ring-nvidia-green/30',
-                'bg-white',
-                'text-nvidia-gray-600',
-                'hover:bg-nvidia-gray-50',
-                'hover:text-nvidia-black',
-                'hover:border-b-nvidia-gray-200'
-              );
-              btn.setAttribute('aria-selected', 'false');
+              applyMatrixModuleTabDisabledVisual(btn);
             } else {
-              btn.classList.remove(
-                'cursor-not-allowed',
-                'bg-[#999999]',
-                'text-nvidia-black',
-                'pointer-events-none'
-              );
+              clearMatrixModuleTabDisabledVisual(btn);
             }
           });
           var am = modal.getAttribute('data-active-module');
@@ -808,25 +788,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
           if (!modList.length) return;
           var am = modal.getAttribute('data-active-module');
-          modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
-            if (btn.disabled) {
-              btn.setAttribute('aria-selected', 'false');
-              return;
-            }
-            var on = btn.getAttribute('data-run-module-tab') === am;
-            btn.setAttribute('aria-selected', on ? 'true' : 'false');
-            btn.classList.toggle('bg-nvidia-green/25', on);
-            btn.classList.toggle('text-nvidia-black', on);
-            btn.classList.toggle('!border-b-nvidia-green', on);
-            btn.classList.toggle('ring-1', on);
-            btn.classList.toggle('ring-inset', on);
-            btn.classList.toggle('ring-nvidia-green/30', on);
-            btn.classList.toggle('bg-white', !on);
-            btn.classList.toggle('text-nvidia-gray-600', !on);
-            btn.classList.toggle('border-b-transparent', !on);
-            btn.classList.toggle('hover:bg-nvidia-gray-50', !on);
-            btn.classList.toggle('hover:text-nvidia-black', !on);
-            btn.classList.toggle('hover:border-b-nvidia-gray-200', !on);
+          syncMatrixModuleTabSelection(modal.querySelectorAll('[data-run-module-tab]'), function (b) {
+            return b.getAttribute('data-run-module-tab') === am;
           });
         }
 

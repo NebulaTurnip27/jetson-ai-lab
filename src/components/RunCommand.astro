@@ -21,7 +21,9 @@ import {
 	oneShotHasRunModalContent,
 	type OneShotForRunModal,
 } from '../lib/evalRunModal';
-import JetsonModuleIconFrame from './JetsonModuleIconFrame.astro';
+import JetsonEngineRail from './matrix/JetsonEngineRail.astro';
+import JetsonModuleTabBar from './matrix/JetsonModuleTabBar.astro';
+import type { MatrixModuleTabItem } from './matrix/panelTypes';
 
 interface SupportedEngine {
 	engine: string;
@@ -220,6 +222,38 @@ const firstEvalModuleTabIndex = Math.max(
 	evalModalVisibleModules.findIndex((m) => m.id === defaultEvalModuleId)
 );
 
+const runModalModuleItemsServe: MatrixModuleTabItem[] = modalVisibleModules.map((m) => ({
+	id: m.id,
+	label: m.label,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+	globalDisabled: m.disabled,
+}));
+const runModalTabDisabledServe = modalVisibleModules.map((m) => runModalModuleTabDisabled(m));
+
+const runModalModuleItemsEval: MatrixModuleTabItem[] = evalModalVisibleModules.map((m) => ({
+	id: m.id,
+	label: m.label,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+	globalDisabled: false,
+}));
+const runModalTabDisabledEval = evalModalVisibleModules.map(() => false);
+
+const runModalEngineRailRows = engineUi.map((e) => ({
+	key: e.id,
+	title: e.label,
+	subtitle: e.type?.trim() ? e.type : undefined,
+}));
+
 const modulesSupportedByEngine: Record<string, string[] | null> = {};
 if (supportedEngines?.length) {
 	for (const ui of engines) {
@@ -326,96 +360,22 @@ const engineImages = engineImagesOrin;
             </div>
 
             {useServeMatrix && (
-            <div
-                class="run-modal-module-bar flex w-full min-w-0 max-w-full overflow-x-hidden overflow-y-visible divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white"
-                role="tablist"
-                aria-label="Jetson module"
-            >
-                {modalVisibleModules.map((mod, idx) => {
-                    const tabDis = runModalModuleTabDisabled(mod);
-                    return (
-                    <button
-                        type="button"
-                        role="tab"
-                        data-run-module-tab={mod.id}
-                        data-run-module-global-disabled={mod.disabled === true ? '1' : '0'}
-                        disabled={tabDis}
-                        aria-selected={
-                            tabDis
-                                ? 'false'
-                                : idx === firstEnabledRunModuleIndex
-                                    ? 'true'
-                                    : 'false'
-                        }
-                        class:list={[
-                            'run-modal-module-tab group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-0 transition-colors duration-200',
-                            'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
-                            tabDis
-                                ? 'cursor-not-allowed bg-[#999999] text-nvidia-black border-b-transparent pointer-events-none'
-                                : idx === firstEnabledRunModuleIndex
-                                    ? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
-                                    : 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
-                        ]}
-                        title={mod.label}
-                    >
-                        <JetsonModuleIconFrame
-                            iconSrc={mod.iconSrc}
-                            iconBadgeFamily={mod.iconBadgeFamily}
-                            iconBadgeMemory={mod.iconBadgeMemory}
-                        />
-                        <div class="min-w-0 flex-1 overflow-hidden text-left flex flex-col gap-0.5 whitespace-normal group-disabled:opacity-45">
-                            <span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80 text-inherit [overflow-wrap:anywhere]">{mod.tabKicker}</span>
-                            <span class="text-xs sm:text-sm font-bold leading-snug text-inherit break-words [overflow-wrap:anywhere]">{mod.tabTitleBold}</span>
-                            {mod.tabSubtitleGray && (
-                                <span class="text-[10px] sm:text-[11px] font-normal leading-snug text-inherit opacity-80 break-words [overflow-wrap:anywhere]">{mod.tabSubtitleGray}</span>
-                            )}
-                        </div>
-                    </button>
-                    );
-                })}
-            </div>
+                <JetsonModuleTabBar
+                    variant="run-modal"
+                    modules={runModalModuleItemsServe}
+                    tabDisabled={runModalTabDisabledServe}
+                    firstEnabledIndex={firstEnabledRunModuleIndex}
+                />
             )}
 
             {useEvalMatrix && (
-            <div
-                class="run-modal-module-bar flex w-full min-w-0 max-w-full overflow-x-hidden overflow-y-visible divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white"
-                role="tablist"
-                aria-label="Jetson module"
-            >
-                {evalModalVisibleModules.map((mod, idx) => {
-                    return (
-                    <button
-                        type="button"
-                        role="tab"
-                        data-run-module-tab={mod.id}
-                        data-run-module-global-disabled="0"
-                        aria-selected={idx === firstEvalModuleTabIndex ? 'true' : 'false'}
-                        class:list={[
-                            'run-modal-module-tab group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-0 transition-colors duration-200',
-                            'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
-                            idx === firstEvalModuleTabIndex
-                                ? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
-                                : 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
-                        ]}
-                        title={mod.label}
-                    >
-                        <JetsonModuleIconFrame
-                            iconSrc={mod.iconSrc}
-                            iconBadgeFamily={mod.iconBadgeFamily}
-                            iconBadgeMemory={mod.iconBadgeMemory}
-                            applyGroupDisabledTint={false}
-                        />
-                        <div class="min-w-0 flex-1 overflow-hidden text-left flex flex-col gap-0.5 whitespace-normal">
-                            <span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80 text-inherit [overflow-wrap:anywhere]">{mod.tabKicker}</span>
-                            <span class="text-xs sm:text-sm font-bold leading-snug text-inherit break-words [overflow-wrap:anywhere]">{mod.tabTitleBold}</span>
-                            {mod.tabSubtitleGray && (
-                                <span class="text-[10px] sm:text-[11px] font-normal leading-snug text-inherit opacity-80 break-words [overflow-wrap:anywhere]">{mod.tabSubtitleGray}</span>
-                            )}
-                        </div>
-                    </button>
-                    );
-                })}
-            </div>
+                <JetsonModuleTabBar
+                    variant="run-modal"
+                    modules={runModalModuleItemsEval}
+                    tabDisabled={runModalTabDisabledEval}
+                    firstEnabledIndex={firstEvalModuleTabIndex}
+                    applyIconGroupTint={false}
+                />
             )}
 
             {useEvalMatrix && oneShotInference?.intro?.trim() && (
@@ -432,25 +392,7 @@ const engineImages = engineImagesOrin;
                         <div class="p-4 sm:p-6 overflow-y-auto bg-white border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 shrink-0 w-full lg:w-1/5 lg:min-w-[11rem] lg:max-w-[16rem]">
                             <section>
                                 <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-2">Inference Engine</h4>
-                                <div class="run-modal-engine-bar flex flex-row lg:flex-col overflow-x-auto overflow-y-hidden lg:overflow-visible overscroll-x-contain divide-x divide-nvidia-gray-200 lg:divide-x-0 lg:divide-y lg:divide-nvidia-gray-200 pb-1 -mx-1 px-2 sm:px-3 lg:mx-0 lg:px-0 lg:border-0 border-b border-nvidia-gray-100 lg:pb-0">
-                                    {engineUi.map((e) => (
-                                        <button
-                                            type="button"
-                                            data-run-engine-btn={e.id}
-                                            class:list={[
-                                                'run-modal-engine-btn text-left cursor-pointer transition-colors duration-200 shrink-0 min-w-[6.5rem] lg:min-w-0 lg:w-full',
-                                                'px-3 sm:px-4 lg:px-0 lg:pl-2.5',
-                                                'border-b-[3px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:!border-l-[3px] lg:py-2',
-                                                'border-b-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
-                                            ]}
-                                        >
-                                            <span class="font-semibold text-sm block">{e.label}</span>
-                                            {e.type && (
-                                                <span class="text-xs text-nvidia-gray-500 mt-0.5 block font-normal">{e.type}</span>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
+                                <JetsonEngineRail variant="run-modal" engines={runModalEngineRailRows} />
                             </section>
                         </div>
                         <div class="bg-nvidia-gray-50 flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden p-3 sm:p-4">

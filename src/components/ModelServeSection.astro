@@ -6,7 +6,9 @@ import {
 	visibleModulesForEngines,
 	type SupportedEngineEntry,
 } from '../lib/inferenceCommands';
-import JetsonModuleIconFrame from './JetsonModuleIconFrame.astro';
+import JetsonEngineRail from './matrix/JetsonEngineRail.astro';
+import JetsonModuleTabBar from './matrix/JetsonModuleTabBar.astro';
+import type { MatrixModuleTabItem } from './matrix/panelTypes';
 
 interface Props {
 	engines: SupportedEngineEntry[];
@@ -85,6 +87,24 @@ const panelConfigJson = JSON.stringify({
 	defaultEngine: defaultEngineName,
 	modelSlug,
 });
+
+const servePanelModuleItems: MatrixModuleTabItem[] = visibleModules.map((m) => ({
+	id: m.id,
+	label: m.label,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+	globalDisabled: m.disabled === true,
+}));
+const servePanelTabDisabled = visibleModules.map((m) => moduleTabDisabledForEngine(m, defaultEngineEntry));
+const servePanelEngineRows = sortedEngines.map((e) => ({
+	key: e.engine,
+	title: e.engine,
+	subtitle: e.type?.trim() ? e.type : undefined,
+}));
 ---
 
 {
@@ -118,96 +138,24 @@ const panelConfigJson = JSON.stringify({
 					role="tabpanel"
 					aria-label="Commands for selected module and engine"
 				>
-					<div
-						class="inference-matrix-module-bar flex overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white w-full"
-						role="tablist"
-						aria-label="Jetson module"
-					>
-						{visibleModules.map((mod, index) => {
-							const tabDisabled = moduleTabDisabledForEngine(mod, defaultEngineEntry);
-							return (
-							<button
-								type="button"
-								role="tab"
-								aria-selected={
-									tabDisabled
-										? 'false'
-										: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
-											? 'true'
-											: 'false'
-								}
-								disabled={tabDisabled}
-								id={`inference-tab-${mod.id}`}
-								class:list={[
-									'module-tab-btn group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
-									'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
-									tabDisabled
-										? 'cursor-not-allowed bg-[#999999] text-nvidia-black border-b-transparent pointer-events-none'
-										: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
-											? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
-											: 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
-								]}
-								data-module={mod.id}
-								data-module-global-disabled={mod.disabled === true ? '1' : '0'}
-								title={mod.label}
-							>
-								<JetsonModuleIconFrame
-									iconSrc={mod.iconSrc}
-									iconBadgeFamily={mod.iconBadgeFamily}
-									iconBadgeMemory={mod.iconBadgeMemory}
-								/>
-								<div class="min-w-0 flex-1 text-left flex flex-col gap-0.5 group-disabled:opacity-45">
-									<span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80 text-inherit">
-										{mod.tabKicker}
-									</span>
-									<span class="text-xs sm:text-sm font-bold leading-snug text-inherit">
-										{mod.tabTitleBold}
-									</span>
-									{
-										mod.tabSubtitleGray && (
-											<span class="text-[10px] sm:text-[11px] font-normal leading-snug text-inherit opacity-80">
-												{mod.tabSubtitleGray}
-											</span>
-										)
-									}
-								</div>
-							</button>
-							);
-						})}
-					</div>
+					<JetsonModuleTabBar
+						variant="serve-panel"
+						modules={servePanelModuleItems}
+						tabDisabled={servePanelTabDisabled}
+						firstEnabledIndex={firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0}
+						tabIdPrefix="inference-tab-"
+					/>
 
 					<div class="flex flex-col lg:flex-row min-h-0 min-w-0 items-stretch">
 						<aside class="w-full lg:w-[min(100%,18rem)] xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 bg-nvidia-gray-50/80 min-w-0 flex flex-col">
 							<h3 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider px-4 pt-4 lg:pt-5 lg:px-4 mb-2 lg:mb-3">
 								Inference Engine
 							</h3>
-							<div
-								class="inference-matrix-engine-bar flex flex-row lg:flex-col overflow-x-auto overflow-y-hidden lg:overflow-visible overscroll-x-contain snap-x lg:snap-none divide-x divide-nvidia-gray-200 lg:divide-x-0 lg:divide-y lg:divide-nvidia-gray-200 px-2 sm:px-3 pb-3 lg:pb-4 lg:px-0 lg:mx-3 border-b border-nvidia-gray-100/80"
-								role="tablist"
-								aria-label="Inference engine"
-							>
-								{sortedEngines.map((eng) => (
-									<button
-										type="button"
-										role="tab"
-										aria-selected={eng.engine === defaultEngineName ? 'true' : 'false'}
-										class:list={[
-											'engine-rail-btn text-left transition-colors duration-200 shrink-0 lg:w-full min-w-[7rem] lg:min-w-0',
-											'px-3 sm:px-4 lg:px-0 lg:pl-3 lg:pr-2',
-											'border-b-[5px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:!border-l-[5px] lg:py-2.5 lg:rounded-r-md',
-											'border-b-transparent text-gray-500 cursor-pointer',
-											'hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
-											'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-transparent disabled:text-nvidia-gray-400',
-										]}
-										data-engine={eng.engine}
-									>
-										<span class="font-semibold text-sm block">{eng.engine}</span>
-										{eng.type && (
-											<span class="text-xs text-nvidia-gray-500 mt-0.5 block font-normal">{eng.type}</span>
-										)}
-									</button>
-								))}
-							</div>
+							<JetsonEngineRail
+								variant="serve-panel"
+								engines={servePanelEngineRows}
+								selectedKey={defaultEngineName}
+							/>
 
 							{showAdvancedConfiguration && (
 								<div class="mt-auto border-t border-nvidia-gray-200 px-3 py-4 lg:px-4">
@@ -412,6 +360,12 @@ const panelConfigJson = JSON.stringify({
 		clearVllmFieldsInInferenceBrowserPrefs,
 		normalizeInferenceEngineKey,
 	} from '../lib/inferenceBrowserPrefs';
+	import {
+		applyMatrixModuleTabDisabledVisual,
+		clearMatrixModuleTabDisabledVisual,
+		syncMatrixEngineRailSelection,
+		syncMatrixModuleTabSelection,
+	} from '../lib/matrixUiSync';
 
 	type PanelCfg = {
 		commands: Record<string, string>;
@@ -524,34 +478,9 @@ const panelConfigJson = JSON.stringify({
 				const dis = global || engOff;
 				btn.disabled = dis;
 				if (dis) {
-					btn.setAttribute('aria-selected', 'false');
-					btn.classList.add(
-						'cursor-not-allowed',
-						'bg-[#999999]',
-						'text-nvidia-black',
-						'border-b-transparent',
-						'pointer-events-none',
-					);
-					btn.classList.remove(
-						'bg-nvidia-green/25',
-						'border-b-nvidia-green',
-						'!border-b-nvidia-green',
-						'ring-1',
-						'ring-inset',
-						'ring-nvidia-green/30',
-						'bg-white',
-						'text-nvidia-gray-600',
-						'hover:bg-nvidia-gray-50',
-						'hover:text-nvidia-black',
-						'hover:border-b-nvidia-gray-200',
-					);
+					applyMatrixModuleTabDisabledVisual(btn);
 				} else {
-					btn.classList.remove(
-						'cursor-not-allowed',
-						'bg-[#999999]',
-						'text-nvidia-black',
-						'pointer-events-none',
-					);
+					clearMatrixModuleTabDisabledVisual(btn);
 				}
 			});
 		}
@@ -631,48 +560,20 @@ const panelConfigJson = JSON.stringify({
 		}
 
 		function syncEngineRailSelection() {
-			engineBtns.forEach((btn) => {
-				// Use attribute (not dataset) so casing matches server-rendered data-engine exactly.
-				const eng = btn.getAttribute('data-engine')?.trim() || '';
-				// Highlight must track activeEngine only; disabled is separate (opacity/pointer-events).
-				const on = normEngineKey(eng) === normEngineKey(activeEngine);
-				btn.setAttribute('aria-selected', on ? 'true' : 'false');
-				btn.classList.toggle('!border-b-nvidia-green', on);
-				btn.classList.toggle('lg:!border-l-nvidia-green', on);
-				btn.classList.toggle('text-nvidia-green', on);
-				btn.classList.toggle('lg:bg-white/80', on);
-				btn.classList.toggle('border-b-transparent', !on);
-				btn.classList.toggle('lg:border-l-transparent', !on);
-				btn.classList.toggle('text-gray-500', !on);
-				btn.classList.toggle('hover:text-nvidia-black', !on);
-				btn.classList.toggle('hover:border-b-gray-300', !on);
-				btn.classList.toggle('lg:hover:border-l-gray-300', !on);
-			});
+			syncMatrixEngineRailSelection(
+				engineBtns,
+				(btn) => {
+					const eng = btn.getAttribute('data-engine')?.trim() || '';
+					return normEngineKey(eng) === normEngineKey(activeEngine);
+				},
+				'serve-panel',
+			);
 		}
 
 		function setActiveModule(moduleId: string) {
 			activeModule = moduleId;
 			writeInferenceBrowserPrefsPatch({ matrixModuleId: moduleId });
-			moduleTabs.forEach((btn) => {
-				const on = btn.dataset.module === moduleId;
-				if (btn.disabled) {
-					btn.setAttribute('aria-selected', 'false');
-					return;
-				}
-				btn.setAttribute('aria-selected', on ? 'true' : 'false');
-				btn.classList.toggle('bg-nvidia-green/25', on);
-				btn.classList.toggle('text-nvidia-black', on);
-				btn.classList.toggle('!border-b-nvidia-green', on);
-				btn.classList.toggle('ring-1', on);
-				btn.classList.toggle('ring-inset', on);
-				btn.classList.toggle('ring-nvidia-green/30', on);
-				btn.classList.toggle('bg-white', !on);
-				btn.classList.toggle('text-nvidia-gray-600', !on);
-				btn.classList.toggle('border-b-transparent', !on);
-				btn.classList.toggle('hover:bg-nvidia-gray-50', !on);
-				btn.classList.toggle('hover:text-nvidia-black', !on);
-				btn.classList.toggle('hover:border-b-nvidia-gray-200', !on);
-			});
+			syncMatrixModuleTabSelection(moduleTabs, (btn) => (btn as HTMLButtonElement).dataset.module === moduleId);
 			syncEngineAvailability();
 			const activeKey = `${activeModule}::${activeEngine}`;
 			const activeCmdKey = commandKeyForUiEngine(activeEngine);

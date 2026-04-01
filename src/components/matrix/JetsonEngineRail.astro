@@ -1,0 +1,47 @@
+---
+import {
+	MATRIX_ENGINE_BAR_MODAL,
+	MATRIX_ENGINE_BAR_SERVE,
+	MATRIX_ENGINE_BTN_MODAL,
+	MATRIX_ENGINE_BTN_SERVE,
+	MATRIX_ENGINE_SUBTITLE,
+	MATRIX_ENGINE_TITLE,
+} from './matrixTabStyles';
+import type { EngineRailItem, EngineRailVariant } from './panelTypes';
+
+interface Props {
+	variant: EngineRailVariant;
+	engines: EngineRailItem[];
+	/** Panel only: which engine tab is selected (`aria-selected`) */
+	selectedKey?: string;
+}
+
+const { variant, engines, selectedKey = '' } = Astro.props;
+
+const barClass = variant === 'run-modal' ? MATRIX_ENGINE_BAR_MODAL : MATRIX_ENGINE_BAR_SERVE;
+const buttonClasses = variant === 'run-modal' ? MATRIX_ENGINE_BTN_MODAL : MATRIX_ENGINE_BTN_SERVE;
+---
+
+<div
+	class={barClass}
+	role="tablist"
+	aria-label="Inference engine"
+	data-jetson-matrix-ui={`engine-rail:${variant}`}
+	data-jetson-matrix-revision="3"
+>
+	{
+		engines.map((eng) => (
+			<button
+				type="button"
+				role="tab"
+				aria-selected={variant === 'serve-panel' ? (eng.key === selectedKey ? 'true' : 'false') : null}
+				class:list={[...buttonClasses]}
+				data-engine={variant === 'serve-panel' ? eng.key : undefined}
+				data-run-engine-btn={variant === 'run-modal' ? eng.key : undefined}
+			>
+				<span class={MATRIX_ENGINE_TITLE}>{eng.title}</span>
+				{eng.subtitle && <span class={MATRIX_ENGINE_SUBTITLE}>{eng.subtitle}</span>}
+			</button>
+		))
+	}
+</div>

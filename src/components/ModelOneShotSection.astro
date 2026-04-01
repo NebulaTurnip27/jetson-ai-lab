@@ -1,5 +1,6 @@
 ---
-import JetsonModuleIconFrame from './JetsonModuleIconFrame.astro';
+import JetsonModuleTabBar from './matrix/JetsonModuleTabBar.astro';
+import type { MatrixModuleTabItem } from './matrix/panelTypes';
 import {
 	evalMatrixModuleSpecs,
 	evalModalShowsPython,
@@ -53,6 +54,23 @@ const showKindTabs = showShell && showPython;
 const defaultModuleId = moduleSpecs[0]?.id ?? '';
 const _firstShellIdx = moduleSpecs.findIndex((m) => (snippetMap[m.id]?.shell || '').trim().length > 0);
 const firstEnabledModuleIndex = _firstShellIdx >= 0 ? _firstShellIdx : 0;
+
+const oneShotModuleItems: MatrixModuleTabItem[] = moduleSpecs.map((m) => ({
+	id: m.id,
+	label: m.label,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+	globalDisabled: false,
+}));
+const oneShotTabDisabled = moduleSpecs.map((m) => {
+	const hasSnippet =
+		(snippetMap[m.id]?.shell || '').trim().length > 0 || (snippetMap[m.id]?.python || '').trim().length > 0;
+	return !hasSnippet;
+});
 
 const panelConfigJson = JSON.stringify({
 	modules: moduleSpecs.map((m) => ({
@@ -108,62 +126,13 @@ const panelConfigJson = JSON.stringify({
 						role="region"
 						aria-label="One-shot commands by Jetson module"
 					>
-						<div
-							class="inference-matrix-module-bar one-shot-module-bar flex overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white w-full"
-							role="tablist"
-							aria-label="Jetson module"
-						>
-							{moduleSpecs.map((mod, index) => {
-								const hasSnippet = (snippetMap[mod.id]?.shell || '').trim() || (snippetMap[mod.id]?.python || '').trim();
-								const tabDisabled = !hasSnippet;
-								return (
-									<button
-										type="button"
-										role="tab"
-										aria-selected={
-											tabDisabled
-												? 'false'
-												: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
-													? 'true'
-													: 'false'
-										}
-										disabled={tabDisabled}
-										id={`one-shot-tab-${mod.id}`}
-										class:list={[
-											'one-shot-module-tab module-tab-btn group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
-											'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
-											tabDisabled
-												? 'cursor-not-allowed bg-[#999999] text-nvidia-black border-b-transparent pointer-events-none'
-												: index === (firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0)
-													? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
-													: 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
-										]}
-										data-module={mod.id}
-										data-module-global-disabled="0"
-										title={mod.label}
-									>
-										<JetsonModuleIconFrame
-											iconSrc={mod.iconSrc}
-											iconBadgeFamily={mod.iconBadgeFamily}
-											iconBadgeMemory={mod.iconBadgeMemory}
-										/>
-										<div class="min-w-0 flex-1 text-left flex flex-col gap-0.5 group-disabled:opacity-45">
-											<span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80 text-inherit">
-												{mod.tabKicker}
-											</span>
-											<span class="text-xs sm:text-sm font-bold leading-snug text-inherit">
-												{mod.tabTitleBold}
-											</span>
-											{mod.tabSubtitleGray && (
-												<span class="text-[10px] sm:text-[11px] font-normal leading-snug text-inherit opacity-80">
-													{mod.tabSubtitleGray}
-												</span>
-											)}
-										</div>
-									</button>
-								);
-							})}
-						</div>
+						<JetsonModuleTabBar
+							variant="one-shot"
+							modules={oneShotModuleItems}
+							tabDisabled={oneShotTabDisabled}
+							firstEnabledIndex={firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0}
+							tabIdPrefix="one-shot-tab-"
+						/>
 
 						<div class="flex flex-col lg:flex-row min-h-0 min-w-0 items-stretch">
 							<aside class="w-full lg:w-[min(100%,18rem)] xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 bg-nvidia-gray-50/80 min-w-0 flex flex-col">
@@ -313,6 +282,7 @@ const panelConfigJson = JSON.stringify({
 		<script>
 			import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
 			import { readInferenceBrowserPrefs, writeInferenceBrowserPrefsPatch } from '../lib/inferenceBrowserPrefs';
+			import { syncMatrixModuleTabSelection } from '../lib/matrixUiSync';
 
 			type OneShotCfg = {
 				modules: {
@@ -379,22 +349,10 @@ const panelConfigJson = JSON.stringify({
 				}
 
 				function setModuleTabStyles() {
-					moduleTabs.forEach((btn) => {
-						const id = btn.dataset.module || '';
-						const row = cfg.snippets[id];
-						const hasSnippet = (row?.shell || '').trim() || (row?.python || '').trim();
-						if (!hasSnippet) return;
-						const sel = id === activeModule;
-						btn.setAttribute('aria-selected', sel ? 'true' : 'false');
-						btn.classList.toggle('bg-nvidia-green/25', sel);
-						btn.classList.toggle('!border-b-nvidia-green', sel);
-						btn.classList.toggle('ring-1', sel);
-						btn.classList.toggle('ring-inset', sel);
-						btn.classList.toggle('ring-nvidia-green/30', sel);
-						btn.classList.toggle('bg-white', !sel);
-						btn.classList.toggle('border-b-transparent', !sel);
-						btn.classList.toggle('text-nvidia-gray-600', !sel);
-						btn.classList.toggle('text-nvidia-black', sel);
+					syncMatrixModuleTabSelection(moduleTabs, (btn) => {
+						const b = btn as HTMLButtonElement;
+						const id = b.dataset.module || '';
+						return id === activeModule;
 					});
 				}
 

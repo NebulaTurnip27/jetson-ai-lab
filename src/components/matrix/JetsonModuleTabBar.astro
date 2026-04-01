@@ -1,0 +1,111 @@
+---
+import JetsonModuleIconFrame from '../JetsonModuleIconFrame.astro';
+import {
+	MATRIX_MODULE_BAR_MODAL,
+	MATRIX_MODULE_BAR_ONE_SHOT,
+	MATRIX_MODULE_BAR_SERVE,
+	MATRIX_TAB_PADDING,
+	MATRIX_TAB_ROW_MODAL,
+	MATRIX_TAB_ROW_ONE_SHOT,
+	MATRIX_TAB_ROW_SERVE,
+	MATRIX_TAB_STATE_ACTIVE,
+	MATRIX_TAB_STATE_DISABLED,
+	MATRIX_TAB_STATE_INACTIVE,
+	MATRIX_TEXT_COL_MODAL,
+	MATRIX_TEXT_COL_PANEL,
+	MATRIX_TEXT_KICKER_MODAL,
+	MATRIX_TEXT_KICKER_PANEL,
+	MATRIX_TEXT_SUBTITLE_MODAL,
+	MATRIX_TEXT_SUBTITLE_PANEL,
+	MATRIX_TEXT_TITLE_MODAL,
+	MATRIX_TEXT_TITLE_PANEL,
+} from './matrixTabStyles';
+import type { MatrixModuleTabItem, MatrixModuleTabVariant } from './panelTypes';
+
+interface Props {
+	variant: MatrixModuleTabVariant;
+	modules: MatrixModuleTabItem[];
+	/** Same length as `modules`; true = tab disabled (engine mismatch, no snippet, etc.) */
+	tabDisabled: boolean[];
+	firstEnabledIndex: number;
+	/** `inference-tab-` / `one-shot-tab-` — omit for Run modal (no tab id) */
+	tabIdPrefix?: string;
+	/** Run modal eval matrix passes false */
+	applyIconGroupTint?: boolean;
+}
+
+const {
+	variant,
+	modules,
+	tabDisabled,
+	firstEnabledIndex,
+	tabIdPrefix,
+	applyIconGroupTint = true,
+} = Astro.props;
+
+const barClass =
+	variant === 'run-modal'
+		? MATRIX_MODULE_BAR_MODAL
+		: variant === 'one-shot'
+			? MATRIX_MODULE_BAR_ONE_SHOT
+			: MATRIX_MODULE_BAR_SERVE;
+
+function tabButtonClasses(i: number, disabled: boolean): string[] {
+	const active = !disabled && i === firstEnabledIndex;
+	const baseRow =
+		variant === 'run-modal'
+			? MATRIX_TAB_ROW_MODAL
+			: variant === 'one-shot'
+				? MATRIX_TAB_ROW_ONE_SHOT
+				: MATRIX_TAB_ROW_SERVE;
+	const state = disabled ? MATRIX_TAB_STATE_DISABLED : active ? MATRIX_TAB_STATE_ACTIVE : MATRIX_TAB_STATE_INACTIVE;
+	return [baseRow, MATRIX_TAB_PADDING, state];
+}
+
+const textColClass = variant === 'run-modal' ? MATRIX_TEXT_COL_MODAL : MATRIX_TEXT_COL_PANEL;
+const kickerClass = variant === 'run-modal' ? MATRIX_TEXT_KICKER_MODAL : MATRIX_TEXT_KICKER_PANEL;
+const titleClass = variant === 'run-modal' ? MATRIX_TEXT_TITLE_MODAL : MATRIX_TEXT_TITLE_PANEL;
+const subtitleClass = variant === 'run-modal' ? MATRIX_TEXT_SUBTITLE_MODAL : MATRIX_TEXT_SUBTITLE_PANEL;
+---
+
+<div
+	class={barClass}
+	role="tablist"
+	aria-label="Jetson module"
+	data-jetson-matrix-ui={`module-tab-bar:${variant}`}
+	data-jetson-matrix-revision="3"
+>
+	{
+		modules.map((mod, index) => {
+			const dis = tabDisabled[index] === true;
+			const gd = mod.globalDisabled === true ? '1' : '0';
+			return (
+				<button
+					type="button"
+					role="tab"
+					aria-selected={dis ? 'false' : index === firstEnabledIndex ? 'true' : 'false'}
+					disabled={dis}
+					id={tabIdPrefix ? `${tabIdPrefix}${mod.id}` : undefined}
+					class:list={tabButtonClasses(index, dis)}
+					data-run-module-tab={variant === 'run-modal' ? mod.id : undefined}
+					data-run-module-global-disabled={variant === 'run-modal' ? gd : undefined}
+					data-module={variant !== 'run-modal' ? mod.id : undefined}
+					data-module-global-disabled={variant !== 'run-modal' ? gd : undefined}
+					title={mod.label}
+				>
+					<JetsonModuleIconFrame
+						iconSrc={mod.iconSrc}
+						iconBadgeFamily={mod.iconBadgeFamily}
+						iconBadgeMemory={mod.iconBadgeMemory}
+						applyGroupDisabledTint={applyIconGroupTint}
+					/>
+					<div class={textColClass}>
+						<span class={kickerClass}>{mod.tabKicker}</span>
+						<span class={titleClass}>{mod.tabTitleBold}</span>
+						{mod.tabSubtitleGray && <span class={subtitleClass}>{mod.tabSubtitleGray}</span>}
+					</div>
+				</button>
+			);
+		})
+	}
+</div>
