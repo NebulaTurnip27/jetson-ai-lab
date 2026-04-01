@@ -715,9 +715,33 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
         }
 
+        function syncRunModalMatrixEngineRail(modal, meta) {
+          if (!meta.useMatrix) return;
+          var ae = modal.getAttribute('data-active-engine') || '';
+          var aeNorm = normalizeInferenceEngineKey(ae);
+          modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
+            var on = normalizeInferenceEngineKey(btn.getAttribute('data-run-engine-btn') || '') === aeNorm;
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            btn.classList.toggle('!border-b-nvidia-green', on);
+            btn.classList.toggle('lg:!border-l-nvidia-green', on);
+            btn.classList.toggle('text-nvidia-green', on);
+            btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
+            btn.classList.toggle('border-b-transparent', !on);
+            btn.classList.toggle('lg:border-l-transparent', !on);
+            btn.classList.toggle('text-gray-500', !on);
+            btn.classList.toggle('hover:text-nvidia-black', !on);
+            btn.classList.toggle('hover:border-b-gray-300', !on);
+            btn.classList.toggle('lg:hover:border-l-gray-300', !on);
+          });
+        }
+
         function updateRunModalModuleTabAvailability(modal, meta) {
           if (meta.useEvalMatrix) return;
-          if (!meta.useMatrix || !meta.modalVisibleModules || !meta.modalVisibleModules.length) return;
+          if (!meta.useMatrix) return;
+          if (!meta.modalVisibleModules || !meta.modalVisibleModules.length) {
+            syncRunModalMatrixEngineRail(modal, meta);
+            return;
+          }
           var map = meta.modulesSupportedByEngine || {};
           var ae = (modal.getAttribute('data-active-engine') || '').toLowerCase();
           function allowedForEngine() {
@@ -743,6 +767,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               btn.classList.remove(
                 'bg-nvidia-green/25',
                 'border-b-nvidia-green',
+                '!border-b-nvidia-green',
                 'ring-1',
                 'ring-inset',
                 'ring-nvidia-green/30',
@@ -774,6 +799,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         }
 
         function syncRunModalMatrixUi(modal, meta) {
+          syncRunModalMatrixEngineRail(modal, meta);
           var modList = [];
           if (meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length) {
             modList = meta.modalVisibleModules;
@@ -782,7 +808,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
           if (!modList.length) return;
           var am = modal.getAttribute('data-active-module');
-          var ae = modal.getAttribute('data-active-engine');
           modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
             if (btn.disabled) {
               btn.setAttribute('aria-selected', 'false');
@@ -792,7 +817,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             btn.setAttribute('aria-selected', on ? 'true' : 'false');
             btn.classList.toggle('bg-nvidia-green/25', on);
             btn.classList.toggle('text-nvidia-black', on);
-            btn.classList.toggle('border-b-nvidia-green', on);
+            btn.classList.toggle('!border-b-nvidia-green', on);
             btn.classList.toggle('ring-1', on);
             btn.classList.toggle('ring-inset', on);
             btn.classList.toggle('ring-nvidia-green/30', on);
@@ -803,29 +828,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             btn.classList.toggle('hover:text-nvidia-black', !on);
             btn.classList.toggle('hover:border-b-nvidia-gray-200', !on);
           });
-          if (meta.useMatrix) {
-            function normRunEngineId(s) {
-              return String(s || '')
-                .trim()
-                .toLowerCase()
-                .replace(/[.\-_]/g, '');
-            }
-            var aeNorm = normRunEngineId(ae);
-            modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
-              var on = normRunEngineId(btn.getAttribute('data-run-engine-btn')) === aeNorm;
-              btn.setAttribute('aria-selected', on ? 'true' : 'false');
-              btn.classList.toggle('border-b-nvidia-green', on);
-              btn.classList.toggle('lg:border-l-nvidia-green', on);
-              btn.classList.toggle('text-nvidia-green', on);
-              btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
-              btn.classList.toggle('border-b-transparent', !on);
-              btn.classList.toggle('lg:border-l-transparent', !on);
-              btn.classList.toggle('text-gray-500', !on);
-              btn.classList.toggle('hover:text-nvidia-black', !on);
-              btn.classList.toggle('hover:border-b-gray-300', !on);
-              btn.classList.toggle('lg:hover:border-l-gray-300', !on);
-            });
-          }
         }
 
         function findRunModalEngineButton(modal, engineId) {
@@ -970,8 +972,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         document.addEventListener('click', function (e) {
           var openBtn = e.target.closest('[data-run-open]');
           if (openBtn) {
-            var id = openBtn.getAttribute('data-run-open');
-            var modal = document.querySelector('[data-run-modal="' + id + '"]');
+            var modelId = openBtn.getAttribute('data-run-open');
+            /** Prefer the modal immediately after this button (same RunCommand island). Catalog lists the same model in cards + table, so querySelector would always hit the hidden cards instance first. */
+            var modal = openBtn.nextElementSibling;
+            if (!modal || modal.getAttribute('data-run-modal') !== modelId) {
+              modal = document.querySelector('[data-run-modal="' + modelId + '"]');
+            }
             if (modal) openModal(modal);
             return;
           }

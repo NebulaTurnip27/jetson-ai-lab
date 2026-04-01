@@ -194,8 +194,8 @@ const panelConfigJson = JSON.stringify({
 										class:list={[
 											'engine-rail-btn text-left transition-colors duration-200 shrink-0 lg:w-full min-w-[7rem] lg:min-w-0',
 											'px-3 sm:px-4 lg:px-0 lg:pl-3 lg:pr-2',
-											'border-b-[5px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:border-l-[5px] lg:py-2.5 lg:rounded-r-md',
-											'border-b-transparent lg:border-l-transparent text-gray-500 cursor-pointer',
+											'border-b-[5px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:!border-l-[5px] lg:py-2.5 lg:rounded-r-md',
+											'border-b-transparent text-gray-500 cursor-pointer',
 											'hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
 											'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-transparent disabled:text-nvidia-gray-400',
 										]}
@@ -535,6 +535,7 @@ const panelConfigJson = JSON.stringify({
 					btn.classList.remove(
 						'bg-nvidia-green/25',
 						'border-b-nvidia-green',
+						'!border-b-nvidia-green',
 						'ring-1',
 						'ring-inset',
 						'ring-nvidia-green/30',
@@ -636,8 +637,8 @@ const panelConfigJson = JSON.stringify({
 				// Highlight must track activeEngine only; disabled is separate (opacity/pointer-events).
 				const on = normEngineKey(eng) === normEngineKey(activeEngine);
 				btn.setAttribute('aria-selected', on ? 'true' : 'false');
-				btn.classList.toggle('border-b-nvidia-green', on);
-				btn.classList.toggle('lg:border-l-nvidia-green', on);
+				btn.classList.toggle('!border-b-nvidia-green', on);
+				btn.classList.toggle('lg:!border-l-nvidia-green', on);
 				btn.classList.toggle('text-nvidia-green', on);
 				btn.classList.toggle('lg:bg-white/80', on);
 				btn.classList.toggle('border-b-transparent', !on);
@@ -661,7 +662,7 @@ const panelConfigJson = JSON.stringify({
 				btn.setAttribute('aria-selected', on ? 'true' : 'false');
 				btn.classList.toggle('bg-nvidia-green/25', on);
 				btn.classList.toggle('text-nvidia-black', on);
-				btn.classList.toggle('border-b-nvidia-green', on);
+				btn.classList.toggle('!border-b-nvidia-green', on);
 				btn.classList.toggle('ring-1', on);
 				btn.classList.toggle('ring-inset', on);
 				btn.classList.toggle('ring-nvidia-green/30', on);
