@@ -1,13 +1,27 @@
 ---
 import type { InferenceCategory } from '../lib/engines';
 import { enginesForCategory, defaultEngineForCategory } from '../lib/engines';
+import { sortEnginesForUi } from '../lib/modelFrontmatterAdapter';
 import {
 	applyMatrixModuleDisabledFlags,
 	buildCommandMatrix,
 	buildModuleCommandMatrix,
+	engineHasPlatformContent,
+	engineSupportsModule,
+	matchSupportedEngine,
+	type SupportedEngineEntry,
 	visibleModulesForEngines,
 	moduleIdToPlatformMap,
 } from '../lib/inferenceCommands';
+import {
+	evalMatrixModuleSpecs,
+	evalModalShowsPython,
+	evalModalShowsShell,
+	evalSnippetByModule,
+	oneShotHasRunModalContent,
+	type OneShotForRunModal,
+} from '../lib/evalRunModal';
+import JetsonModuleIconFrame from './JetsonModuleIconFrame.astro';
 
 interface SupportedEngine {
 	engine: string;
@@ -18,6 +32,8 @@ interface SupportedEngine {
 	run_command_orin?: string;
 	install_command_thor?: string;
 	run_command_thor?: string;
+	modules_supported?: string[];
+	run_commands_by_module?: Record<string, string>;
 }
 
 interface Props {
@@ -29,6 +45,8 @@ interface Props {
     supportedEngines?: SupportedEngine[];
     /** From model `matrix_modules_disabled` when rendering from catalog */
     matrixModulesDisabled?: string[];
+	/** `one_shot_inference` — Run modal shows eval matrix when no serve matrix */
+	oneShotInference?: OneShotForRunModal | null;
 }
 
 const {
@@ -37,8 +55,9 @@ const {
 	category,
 	forceModal = false,
 	hfCheckpoint,
-	supportedEngines,
-	matrixModulesDisabled,
+    supportedEngines,
+    matrixModulesDisabled,
+	oneShotInference = null,
 } = Astro.props as Props;
 
 let engines = enginesForCategory(category);
@@ -56,10 +75,21 @@ if (supportedEngines && supportedEngines.length > 0) {
          const allEngines = enginesForCategory(category);
          engines = allEngines.filter(e => supportedIds.some(id => id.includes(e.id) || e.id.includes(id)));
     }
+    const sortedYaml = sortEnginesForUi(supportedEngines as SupportedEngineEntry[]);
+    const rank = new Map<string, number>();
+    sortedYaml.forEach((se, i) => {
+      const k = se.engine.toLowerCase().replace(/[.\-_]/g, '');
+      rank.set(k, i);
+    });
+    engines = [...engines].sort((a, b) => {
+      const ka = a.id.replace(/[.\-_]/g, '');
+      const kb = b.id.replace(/[.\-_]/g, '');
+      return (rank.get(ka) ?? 99) - (rank.get(kb) ?? 99);
+    });
 }
 
 const defaultEngine = defaultEngineForCategory(category);
-const defaultEngineId = defaultEngine?.id || (engines[0]?.id ?? '');
+let defaultEngineId = defaultEngine?.id || (engines[0]?.id ?? '');
 
 const buttonId = `run-btn-${modelId}`;
 const modalId = `run-modal-${modelId}`;
@@ -69,8 +99,8 @@ const allDevices = ['Jetson Orin', 'Jetson Thor'];
 let jetsonDevices = allDevices;
 
 if (supportedEngines && supportedEngines.length > 0) {
-    const hasOrin = supportedEngines.some(e => e.run_command_orin || e.run_command);
-    const hasThor = supportedEngines.some(e => e.run_command_thor);
+    const hasOrin = supportedEngines.some(e => engineHasPlatformContent(e, 'orin'));
+    const hasThor = supportedEngines.some(e => engineHasPlatformContent(e, 'thor'));
     
     const availableDevices: string[] = [];
     if (hasOrin) availableDevices.push('Jetson Orin');
@@ -95,11 +125,47 @@ const commandMatrix = buildCommandMatrix(category, supportedEngines);
 const visibleModules = supportedEngines?.length
 	? applyMatrixModuleDisabledFlags(visibleModulesForEngines(supportedEngines), matrixModulesDisabled)
 	: [];
-const useMatrix = visibleModules.length > 0 && engines.length > 0;
-const moduleCommandMatrix = useMatrix
+const useServeMatrix = visibleModules.length > 0 && engines.length > 0;
+const evalModuleSpecs = oneShotInference ? evalMatrixModuleSpecs(oneShotInference) : [];
+const useEvalMatrix =
+	!useServeMatrix &&
+	oneShotHasRunModalContent(oneShotInference) &&
+	evalModuleSpecs.length > 0;
+const evalSnippetMap = useEvalMatrix && oneShotInference
+	? evalSnippetByModule(
+			oneShotInference,
+			evalModuleSpecs.map((m) => m.id)
+		)
+	: {};
+const evalShowShell = useEvalMatrix ? evalModalShowsShell(evalSnippetMap) : false;
+const evalShowPython = useEvalMatrix ? evalModalShowsPython(evalSnippetMap) : false;
+
+/** Legacy Layout meta: serve matrix flag */
+const useMatrix = useServeMatrix;
+const moduleCommandMatrix = useServeMatrix
 	? buildModuleCommandMatrix(category, supportedEngines)
 	: {};
-const moduleIdToPlatform = useMatrix ? moduleIdToPlatformMap(visibleModules) : {};
+const moduleIdToPlatform = useServeMatrix
+	? moduleIdToPlatformMap(visibleModules)
+	: useEvalMatrix
+		? moduleIdToPlatformMap(evalModuleSpecs)
+		: {};
+
+if (useServeMatrix && engines.length > 0) {
+	defaultEngineId = engines[0].id;
+}
+
+const defaultEngineEntry =
+	supportedEngines?.length && defaultEngineId
+		? matchSupportedEngine(supportedEngines, defaultEngineId)
+		: undefined;
+
+function moduleTabOkForMatrixEngine(m: (typeof visibleModules)[0]): boolean {
+	if (m.disabled === true) return false;
+	if (!defaultEngineEntry) return true;
+	return engineSupportsModule(defaultEngineEntry, m.id);
+}
+
 const modalVisibleModules = visibleModules.map((m) => ({
 	id: m.id,
 	shortLabel: m.shortLabel,
@@ -108,11 +174,54 @@ const modalVisibleModules = visibleModules.map((m) => ({
 	tabKicker: m.tabKicker,
 	tabTitleBold: m.tabTitleBold,
 	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
 }));
-const _runFirstEnIdx = visibleModules.findIndex((m) => m.disabled !== true);
+
+function runModalModuleTabDisabled(mod: (typeof modalVisibleModules)[0]): boolean {
+	if (mod.disabled) return true;
+	if (!defaultEngineEntry) return false;
+	return !engineSupportsModule(defaultEngineEntry, mod.id);
+}
+
+const _runFirstEnIdx = visibleModules.findIndex((m) => moduleTabOkForMatrixEngine(m));
 const firstEnabledRunModuleIndex = _runFirstEnIdx >= 0 ? _runFirstEnIdx : 0;
 const defaultModuleId =
-	visibleModules.find((m) => m.disabled !== true)?.id ?? visibleModules[0]?.id ?? '';
+	visibleModules.find((m) => moduleTabOkForMatrixEngine(m))?.id ?? visibleModules[0]?.id ?? '';
+
+const evalModalVisibleModules = evalModuleSpecs.map((m) => ({
+	id: m.id,
+	shortLabel: m.shortLabel,
+	label: m.label,
+	disabled: false as boolean,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+}));
+const defaultEvalModuleId = evalModuleSpecs[0]?.id ?? '';
+const firstEvalModuleTabIndex = Math.max(
+	0,
+	evalModalVisibleModules.findIndex((m) => m.id === defaultEvalModuleId)
+);
+
+const modulesSupportedByEngine: Record<string, string[] | null> = {};
+if (supportedEngines?.length) {
+	for (const ui of engines) {
+		const entry = matchSupportedEngine(supportedEngines, ui.id);
+		if (!entry) {
+			modulesSupportedByEngine[ui.id] = null;
+			continue;
+		}
+		const ms = entry.modules_supported;
+		if (ms === undefined) modulesSupportedByEngine[ui.id] = null;
+		else if (ms.length === 0) modulesSupportedByEngine[ui.id] = [];
+		else modulesSupportedByEngine[ui.id] = [...ms];
+	}
+}
 
 // Build device-specific engine images from supportedEngines
 const engineImagesOrin: Record<string, string> = {
@@ -150,8 +259,8 @@ const engineImages = engineImagesOrin;
 	id={modalId}
 	data-run-modal={modelId}
 	class="hidden fixed inset-0 z-[60]"
-	data-active-module={useMatrix ? defaultModuleId : ''}
-	data-active-engine={useMatrix ? defaultEngineId : ''}
+	data-active-module={useServeMatrix ? defaultModuleId : useEvalMatrix ? defaultEvalModuleId : ''}
+	data-active-engine={useServeMatrix ? defaultEngineId : ''}
 	data-meta={JSON.stringify({
 		engineUi,
 		engineImages,
@@ -161,6 +270,7 @@ const engineImages = engineImagesOrin;
 		jetpacks,
 		defaultEngineId,
 		defaultModuleId,
+		defaultEvalModuleId,
 		category,
 		modelId,
 		modelName,
@@ -169,15 +279,21 @@ const engineImages = engineImagesOrin;
 		needsHfToken,
 		commandMatrix,
 		useMatrix,
+		useEvalMatrix,
 		moduleCommandMatrix,
 		modalVisibleModules,
+		evalModalVisibleModules,
+		evalSnippetByModule: evalSnippetMap,
+		evalShowShell,
+		evalShowPython,
 		moduleIdToPlatform,
+		modulesSupportedByEngine,
 	})}
 >
 	<div data-overlay data-run-overlay class="absolute inset-0 backdrop-blur-sm transition-opacity" style="background-color: rgba(0, 0, 0, 0.4);"></div>
 	
     <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
-        <div class:list={['w-full bg-white rounded-xl shadow-2xl pointer-events-auto flex flex-col max-h-[90vh] overflow-hidden border border-nvidia-gray-100', useMatrix ? 'max-w-6xl' : 'max-w-5xl']}>
+        <div class:list={['w-full bg-white rounded-xl shadow-2xl pointer-events-auto flex flex-col max-h-[90vh] overflow-hidden border border-nvidia-gray-100', (useServeMatrix || useEvalMatrix) ? 'max-w-7xl' : 'max-w-5xl']}>
             
             <!-- Header -->
             <div class="px-6 py-5 border-b border-nvidia-gray-100 flex items-center justify-between bg-white shrink-0">
@@ -187,7 +303,9 @@ const engineImages = engineImagesOrin;
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-nvidia-black leading-none mb-1">{modelName}</h3>
-                        <p class="text-sm text-nvidia-gray-500">Quick Start Runner</p>
+                        <p class="text-sm text-nvidia-gray-500">
+							{useServeMatrix ? 'Quick Start Runner' : useEvalMatrix ? 'One-shot inference / evaluation' : 'Quick Start Runner'}
+						</p>
                     </div>
                 </div>
                 <button data-close data-run-close class="text-nvidia-gray-400 hover:text-nvidia-black hover:bg-nvidia-gray-50 p-2 rounded-lg transition-colors">
@@ -195,39 +313,101 @@ const engineImages = engineImagesOrin;
                 </button>
             </div>
 
-            {useMatrix && (
+            {useServeMatrix && (
             <div
                 class="run-modal-module-bar flex w-full overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white shrink-0"
                 role="tablist"
                 aria-label="Jetson module"
             >
-                {modalVisibleModules.map((mod, idx) => (
+                {modalVisibleModules.map((mod, idx) => {
+                    const tabDis = runModalModuleTabDisabled(mod);
+                    return (
                     <button
                         type="button"
                         role="tab"
                         data-run-module-tab={mod.id}
-                        disabled={mod.disabled === true}
+                        data-run-module-global-disabled={mod.disabled === true ? '1' : '0'}
+                        disabled={tabDis}
                         aria-selected={
-                            mod.disabled
+                            tabDis
                                 ? 'false'
                                 : idx === firstEnabledRunModuleIndex
                                     ? 'true'
                                     : 'false'
                         }
                         class:list={[
-                            'run-modal-module-tab flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
-                            'px-4 sm:px-5 py-2.5 border-b-[3px] pb-3 -mb-px',
-                            mod.disabled
-                                ? 'cursor-not-allowed opacity-40 text-nvidia-gray-400 bg-transparent border-b-transparent pointer-events-none'
+                            'run-modal-module-tab group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
+                            'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
+                            tabDis
+                                ? 'cursor-not-allowed bg-[#999999] text-nvidia-black border-b-transparent pointer-events-none'
                                 : idx === firstEnabledRunModuleIndex
-                                    ? 'cursor-pointer bg-nvidia-gray-50/90 border-b-nvidia-green text-nvidia-green'
-                                    : 'cursor-pointer bg-transparent border-b-transparent text-gray-500 hover:bg-nvidia-gray-50/80 hover:text-nvidia-black hover:border-b-gray-300',
+                                    ? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
+                                    : 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
                         ]}
                         title={mod.label}
                     >
-                        <div class="h-16 w-16 sm:h-24 sm:w-24 rounded-lg bg-gradient-to-br from-nvidia-gray-100 to-nvidia-gray-200 border border-dashed border-nvidia-gray-400 flex items-center justify-center pointer-events-none shrink-0" aria-hidden="true">
-                            <span class="text-xs font-bold text-nvidia-gray-500">ISO</span>
+                        {mod.iconSrc ? (
+                            <div
+                                class="h-16 w-16 sm:h-24 sm:w-24 box-border shrink-0 rounded-lg border-2 border-nvidia-gray-400 bg-white p-1 sm:p-1.5 flex items-center justify-center overflow-hidden pointer-events-none group-disabled:opacity-45 group-disabled:saturate-50"
+                                aria-hidden="true"
+                            >
+                                <img
+                                    src={mod.iconSrc}
+                                    alt=""
+                                    class="max-h-full max-w-full object-contain"
+                                    width="96"
+                                    height="96"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            </div>
+                        ) : (
+                            <div class="h-16 w-16 sm:h-24 sm:w-24 rounded-lg bg-gradient-to-br from-nvidia-gray-100 to-nvidia-gray-200 border-2 border-dashed border-nvidia-gray-500 flex items-center justify-center pointer-events-none shrink-0 group-disabled:opacity-45 group-disabled:saturate-50" aria-hidden="true">
+                                <span class="text-xs font-bold text-nvidia-gray-500 leading-tight text-center px-1">ISO</span>
+                            </div>
+                        )}
+                        <div class="min-w-0 flex-1 text-left flex flex-col gap-0.5 group-disabled:opacity-45">
+                            <span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80 text-inherit">{mod.tabKicker}</span>
+                            <span class="text-xs sm:text-sm font-bold leading-snug text-inherit">{mod.tabTitleBold}</span>
+                            {mod.tabSubtitleGray && (
+                                <span class="text-[10px] sm:text-[11px] font-normal leading-snug text-inherit opacity-80">{mod.tabSubtitleGray}</span>
+                            )}
                         </div>
+                    </button>
+                    );
+                })}
+            </div>
+            )}
+
+            {useEvalMatrix && (
+            <div
+                class="run-modal-module-bar flex w-full overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory divide-x divide-nvidia-gray-200 border-b border-gray-200 bg-white shrink-0"
+                role="tablist"
+                aria-label="Jetson module"
+            >
+                {evalModalVisibleModules.map((mod, idx) => {
+                    return (
+                    <button
+                        type="button"
+                        role="tab"
+                        data-run-module-tab={mod.id}
+                        data-run-module-global-disabled="0"
+                        aria-selected={idx === firstEvalModuleTabIndex ? 'true' : 'false'}
+                        class:list={[
+                            'run-modal-module-tab group flex flex-row items-center gap-2 sm:gap-3 flex-1 basis-0 min-w-[10.5rem] sm:min-w-[11rem] snap-start transition-colors duration-200',
+                            'px-4 sm:px-5 py-2.5 border-b-[5px] pb-3 -mb-px',
+                            idx === firstEvalModuleTabIndex
+                                ? 'cursor-pointer bg-nvidia-green/25 text-nvidia-black border-b-nvidia-green ring-1 ring-inset ring-nvidia-green/30'
+                                : 'cursor-pointer bg-white border-b-transparent text-nvidia-gray-600 hover:bg-nvidia-gray-50 hover:text-nvidia-black hover:border-b-nvidia-gray-200',
+                        ]}
+                        title={mod.label}
+                    >
+                        <JetsonModuleIconFrame
+                            iconSrc={mod.iconSrc}
+                            iconBadgeFamily={mod.iconBadgeFamily}
+                            iconBadgeMemory={mod.iconBadgeMemory}
+                            applyGroupDisabledTint={false}
+                        />
                         <div class="min-w-0 flex-1 text-left flex flex-col gap-0.5">
                             <span class="text-[10px] sm:text-[11px] font-medium leading-none opacity-80">{mod.tabKicker}</span>
                             <span class="text-xs sm:text-sm font-bold leading-snug">{mod.tabTitleBold}</span>
@@ -236,20 +416,27 @@ const engineImages = engineImagesOrin;
                             )}
                         </div>
                     </button>
-                ))}
+                    );
+                })}
             </div>
+            )}
+
+            {useEvalMatrix && oneShotInference?.intro?.trim() && (
+                <p class="px-6 py-3 text-sm text-nvidia-gray-600 border-b border-nvidia-gray-100 bg-white shrink-0">
+                    {oneShotInference.intro.trim()}
+                </p>
             )}
 
             <!-- Content -->
             <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-                {useMatrix ? (
+                {useServeMatrix ? (
                 <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     <div class="flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden">
                         <div class="p-4 sm:p-6 overflow-y-auto bg-white border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 shrink-0 w-full lg:w-1/5 lg:min-w-[11rem] lg:max-w-[16rem]">
                             <section>
                                 <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-2">Inference Engine</h4>
                                 <div class="run-modal-engine-bar flex flex-row lg:flex-col overflow-x-auto overflow-y-hidden lg:overflow-visible overscroll-x-contain divide-x divide-nvidia-gray-200 lg:divide-x-0 lg:divide-y lg:divide-nvidia-gray-200 pb-1 -mx-1 px-2 sm:px-3 lg:mx-0 lg:px-0 lg:border-0 border-b border-nvidia-gray-100 lg:pb-0">
-                                    {engineUi.map((e, idx) => (
+                                    {engineUi.map((e) => (
                                         <button
                                             type="button"
                                             data-run-engine-btn={e.id}
@@ -257,9 +444,7 @@ const engineImages = engineImagesOrin;
                                                 'run-modal-engine-btn text-left cursor-pointer transition-colors duration-200 shrink-0 min-w-[6.5rem] lg:min-w-0 lg:w-full',
                                                 'px-3 sm:px-4 lg:px-0 lg:pl-2.5',
                                                 'border-b-[3px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:border-l-[3px] lg:py-2',
-                                                idx === 0
-                                                    ? 'border-b-nvidia-green lg:border-l-nvidia-green text-nvidia-green lg:bg-nvidia-gray-50/80'
-                                                    : 'border-b-transparent lg:border-l-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
+                                                'border-b-transparent lg:border-l-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
                                             ]}
                                         >
                                             <span class="font-semibold text-sm">{e.label}</span>
@@ -269,7 +454,7 @@ const engineImages = engineImagesOrin;
                             </section>
                         </div>
                         <div class="bg-nvidia-gray-50 flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
-                            <div class="flex items-center justify-between mb-4 shrink-0 gap-2 min-w-0">
+                            <div class="flex items-center justify-start mb-4 shrink-0 gap-2 min-w-0">
                                 <div class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200">
                                     {['shell'].map((tab, idx) => (
                                         <button
@@ -280,12 +465,19 @@ const engineImages = engineImagesOrin;
                                         </button>
                                     ))}
                                 </div>
-                                <button data-copy data-run-copy class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                    Copy Command
-                                </button>
                             </div>
                             <div class="flex-1 relative group min-h-[120px] min-w-0 max-w-full rounded-xl border border-slate-800 shadow-lg bg-slate-900 overflow-hidden">
+                                <button
+                                    type="button"
+                                    data-copy
+                                    data-run-copy
+                                    class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold"
+                                >
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                    </svg>
+                                    <span data-run-copy-label>Copy command</span>
+                                </button>
                                 <pre class="h-full max-h-[min(42vh,380px)] min-w-0 w-full max-w-full p-4 sm:p-5 text-sm font-mono leading-relaxed overflow-x-hidden overflow-y-auto text-slate-200 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><code data-snippet class="block w-full max-w-full">Loading command...</code></pre>
                             </div>
                             <p class="mt-3 text-[10px] text-center text-nvidia-gray-500 shrink-0">
@@ -295,30 +487,31 @@ const engineImages = engineImagesOrin;
                     </div>
                     <div
                         data-run-matrix-advanced-strip
-                        class="hidden w-full shrink-0 bg-white border-t border-nvidia-gray-100 px-4 sm:px-6 py-4 max-h-[min(36vh,260px)] overflow-y-auto"
+                        data-run-advanced-scope
+                        class="hidden w-full shrink-0 bg-white border-t border-nvidia-gray-100 px-4 sm:px-6 py-3 max-h-[min(48vh,320px)] overflow-y-auto"
                     >
-                        <h4 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider mb-3">Advanced configuration</h4>
-                        <section data-hf-token-section class="hidden pb-4 mb-4 border-b border-nvidia-gray-100 last:border-0 last:mb-0 last:pb-0">
-                            <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-3">Authentication</h4>
-                            <div>
-                                <label class="block text-sm font-medium text-nvidia-gray-700 mb-1.5">
-                                    Hugging Face Token
-                                    <span class="text-red-500 ml-0.5">*</span>
-                                </label>
-                                <input data-hf-token type="text" placeholder="hf_..." class="w-full max-w-xl bg-nvidia-gray-50 border border-nvidia-gray-200 text-nvidia-black text-sm rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none transition-all placeholder:text-nvidia-gray-300 font-mono text-xs" />
-                                <p class="text-[10px] text-nvidia-gray-400 mt-1.5">This model requires a <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-nvidia-green hover:underline">Hugging Face access token</a>. The token is inserted into the command and never stored.</p>
-                            </div>
-                        </section>
-                        <section data-vllm-config class="hidden">
-                            <div class="flex items-center justify-between mb-3 gap-2">
-                                <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider">vLLM Configuration</h4>
-                                <button type="button" data-advanced-toggle data-run-advanced-toggle class="text-xs font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-1 shrink-0">
-                                    <span data-toggle-text>Show Advanced</span>
-                                    <svg data-toggle-icon class="w-3 h-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                </button>
-                            </div>
-                            <div data-advanced class="hidden space-y-4">
-                                <p class="text-xs text-nvidia-gray-500">
+                        <div class="flex items-center justify-between gap-2">
+                            <h4 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider">Advanced configuration</h4>
+                            <button type="button" data-advanced-toggle data-run-advanced-toggle class="text-xs font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-1 shrink-0">
+                                <span data-toggle-text>Show Advanced</span>
+                                <svg data-toggle-icon class="w-3 h-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                        </div>
+                        <div data-advanced class="hidden space-y-4 mt-4">
+                            <section data-hf-token-section class="hidden pb-4 border-b border-nvidia-gray-100 last:border-0 last:mb-0 last:pb-0">
+                                <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-3">Authentication</h4>
+                                <div>
+                                    <label class="block text-sm font-medium text-nvidia-gray-700 mb-1.5">
+                                        Hugging Face Token
+                                        <span class="text-red-500 ml-0.5">*</span>
+                                    </label>
+                                    <input data-hf-token type="text" placeholder="hf_..." class="w-full max-w-xl bg-nvidia-gray-50 border border-nvidia-gray-200 text-nvidia-black text-sm rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none transition-all placeholder:text-nvidia-gray-300 font-mono text-xs" />
+                                    <p class="text-[10px] text-nvidia-gray-400 mt-1.5">This model requires a <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-nvidia-green hover:underline">Hugging Face access token</a>. The token is inserted into the command and never stored.</p>
+                                </div>
+                            </section>
+                            <section data-vllm-config class="hidden">
+                                <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-3">vLLM Configuration</h4>
+                                <p class="text-xs text-nvidia-gray-500 mb-3">
                                     Configure vLLM server parameters. Leave empty to use defaults.
                                 </p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -349,8 +542,62 @@ const engineImages = engineImagesOrin;
                                 <div class="pt-1">
                                     <button type="button" data-vllm-reset class="text-xs text-nvidia-gray-500 hover:text-nvidia-black underline decoration-dotted">Reset to defaults</button>
                                 </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+                ) : useEvalMatrix ? (
+                <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <div class="bg-nvidia-gray-50 flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
+                        <div class="flex items-center justify-start mb-4 shrink-0 gap-2 min-w-0">
+                            <div class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200">
+                                {evalShowShell && (
+                                    <button
+                                        type="button"
+                                        data-tab="shell"
+                                        class:list={[
+                                            'px-4 py-1.5 rounded-md text-xs font-bold transition-all',
+                                            evalShowPython
+                                                ? 'bg-nvidia-black text-nvidia-white shadow-sm'
+                                                : 'bg-nvidia-black text-nvidia-white shadow-sm',
+                                        ]}
+                                    >
+                                        Shell
+                                    </button>
+                                )}
+                                {evalShowPython && (
+                                    <button
+                                        type="button"
+                                        data-tab="python"
+                                        class:list={[
+                                            'px-4 py-1.5 rounded-md text-xs font-bold transition-all',
+                                            evalShowShell
+                                                ? 'text-nvidia-gray-600 hover:text-nvidia-black hover:bg-nvidia-gray-50'
+                                                : 'bg-nvidia-black text-nvidia-white shadow-sm',
+                                        ]}
+                                    >
+                                        Python
+                                    </button>
+                                )}
                             </div>
-                        </section>
+                        </div>
+                        <div class="flex-1 relative group min-h-[120px] min-w-0 max-w-full rounded-xl border border-slate-800 shadow-lg bg-slate-900 overflow-hidden">
+                            <button
+                                type="button"
+                                data-copy
+                                data-run-copy
+                                class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold"
+                            >
+                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                                <span data-run-copy-label>Copy command</span>
+                            </button>
+                            <pre class="h-full max-h-[min(42vh,380px)] min-w-0 w-full max-w-full p-4 sm:p-5 text-sm font-mono leading-relaxed overflow-x-hidden overflow-y-auto text-slate-200 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><code data-snippet class="block w-full max-w-full">Loading command...</code></pre>
+                        </div>
+                        <p class="mt-3 text-[10px] text-center text-nvidia-gray-500 shrink-0">
+                            One-shot / eval commands for the selected module (not a long-running server).
+                        </p>
                     </div>
                 </div>
                 ) : (
@@ -386,61 +633,64 @@ const engineImages = engineImagesOrin;
                                     </div>
                                 </div>
                             </section>
-                            <section data-hf-token-section class="hidden pt-4 border-t border-nvidia-gray-100">
-                                <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-4">Authentication</h4>
-                                <div>
-                                    <label class="block text-sm font-medium text-nvidia-gray-700 mb-1.5">
-                                        Hugging Face Token
-                                        <span class="text-red-500 ml-0.5">*</span>
-                                    </label>
-                                    <input data-hf-token type="text" placeholder="hf_..." class="w-full bg-nvidia-gray-50 border border-nvidia-gray-200 text-nvidia-black text-sm rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none transition-all placeholder:text-nvidia-gray-300 font-mono text-xs" />
-                                    <p class="text-[10px] text-nvidia-gray-400 mt-1.5">This model requires a <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-nvidia-green hover:underline">Hugging Face access token</a>. The token is inserted into the command and never stored.</p>
-                                </div>
-                            </section>
-                            <section data-vllm-config class="hidden pt-4 border-t border-nvidia-gray-100">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider">vLLM Configuration</h4>
-                                    <button type="button" data-advanced-toggle data-run-advanced-toggle class="text-xs font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-1">
+                            <div data-run-legacy-advanced data-run-advanced-scope class="hidden pt-4 border-t border-nvidia-gray-100">
+                                <div class="flex items-center justify-between gap-2 mb-0">
+                                    <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider">Advanced configuration</h4>
+                                    <button type="button" data-advanced-toggle data-run-advanced-toggle class="text-xs font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-1 shrink-0">
                                         <span data-toggle-text>Show Advanced</span>
                                         <svg data-toggle-icon class="w-3 h-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                     </button>
                                 </div>
-                                <div data-advanced class="hidden space-y-4">
-                                    <p class="text-xs text-nvidia-gray-500 mb-3">
-                                        Configure vLLM server parameters. Leave empty to use defaults.
-                                    </p>
-                                    <div>
-                                        <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
-                                            Port
-                                            <span class="text-nvidia-gray-400 font-normal ml-1">(--port)</span>
-                                        </label>
-                                        <input data-vllm-port type="number" min="1024" max="65535" placeholder="8000" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
-                                            Max Model Length
-                                            <span class="text-nvidia-gray-400 font-normal ml-1">(--max-model-len)</span>
-                                        </label>
-                                        <input data-vllm-max-model-len type="number" min="512" max="131072" step="512" placeholder="32000" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
-                                        <p class="text-[10px] text-nvidia-gray-400 mt-1">Maximum context length the model can handle</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
-                                            GPU Memory Utilization
-                                            <span class="text-nvidia-gray-400 font-normal ml-1">(--gpu-memory-utilization)</span>
-                                        </label>
-                                        <input data-vllm-gpu-mem type="number" min="0.1" max="1.0" step="0.05" placeholder="0.9" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
-                                        <p class="text-[10px] text-nvidia-gray-400 mt-1">Fraction of GPU memory to use (0.1 - 1.0)</p>
-                                    </div>
-                                    <div class="pt-2">
-                                        <button type="button" data-vllm-reset class="text-xs text-nvidia-gray-500 hover:text-nvidia-black underline decoration-dotted">Reset to defaults</button>
-                                    </div>
+                                <div data-advanced class="hidden space-y-6 mt-4">
+                                    <section data-hf-token-section class="hidden">
+                                        <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-4">Authentication</h4>
+                                        <div>
+                                            <label class="block text-sm font-medium text-nvidia-gray-700 mb-1.5">
+                                                Hugging Face Token
+                                                <span class="text-red-500 ml-0.5">*</span>
+                                            </label>
+                                            <input data-hf-token type="text" placeholder="hf_..." class="w-full bg-nvidia-gray-50 border border-nvidia-gray-200 text-nvidia-black text-sm rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none transition-all placeholder:text-nvidia-gray-300 font-mono text-xs" />
+                                            <p class="text-[10px] text-nvidia-gray-400 mt-1.5">This model requires a <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-nvidia-green hover:underline">Hugging Face access token</a>. The token is inserted into the command and never stored.</p>
+                                        </div>
+                                    </section>
+                                    <section data-vllm-config class="hidden">
+                                        <h4 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider mb-3">vLLM Configuration</h4>
+                                        <p class="text-xs text-nvidia-gray-500 mb-3">
+                                            Configure vLLM server parameters. Leave empty to use defaults.
+                                        </p>
+                                        <div>
+                                            <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
+                                                Port
+                                                <span class="text-nvidia-gray-400 font-normal ml-1">(--port)</span>
+                                            </label>
+                                            <input data-vllm-port type="number" min="1024" max="65535" placeholder="8000" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
+                                                Max Model Length
+                                                <span class="text-nvidia-gray-400 font-normal ml-1">(--max-model-len)</span>
+                                            </label>
+                                            <input data-vllm-max-model-len type="number" min="512" max="131072" step="512" placeholder="32000" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
+                                            <p class="text-[10px] text-nvidia-gray-400 mt-1">Maximum context length the model can handle</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-nvidia-gray-600 mb-1">
+                                                GPU Memory Utilization
+                                                <span class="text-nvidia-gray-400 font-normal ml-1">(--gpu-memory-utilization)</span>
+                                            </label>
+                                            <input data-vllm-gpu-mem type="number" min="0.1" max="1.0" step="0.05" placeholder="0.9" class="w-full bg-white border border-nvidia-gray-200 rounded px-2 py-1.5 text-sm focus:border-nvidia-green focus:ring-1 focus:ring-nvidia-green outline-none placeholder:text-nvidia-gray-300" />
+                                            <p class="text-[10px] text-nvidia-gray-400 mt-1">Fraction of GPU memory to use (0.1 - 1.0)</p>
+                                        </div>
+                                        <div class="pt-2">
+                                            <button type="button" data-vllm-reset class="text-xs text-nvidia-gray-500 hover:text-nvidia-black underline decoration-dotted">Reset to defaults</button>
+                                        </div>
+                                    </section>
                                 </div>
-                            </section>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-nvidia-gray-50 flex flex-col min-w-0 min-h-0 overflow-hidden w-full lg:w-7/12 p-6 h-full">
-                        <div class="flex items-center justify-between mb-4 shrink-0 gap-2 min-w-0">
+                        <div class="flex items-center justify-start mb-4 shrink-0 gap-2 min-w-0">
                             <div class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200">
                                 {['shell'].map((tab, idx) => (
                                     <button
@@ -451,12 +701,19 @@ const engineImages = engineImagesOrin;
                                     </button>
                                 ))}
                             </div>
-                            <button data-copy data-run-copy class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                Copy Command
-                            </button>
                         </div>
                         <div class="flex-1 relative group min-h-[120px] min-w-0 max-w-full rounded-xl border border-slate-800 shadow-lg bg-slate-900 overflow-hidden">
+                            <button
+                                type="button"
+                                data-copy
+                                data-run-copy
+                                class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold"
+                            >
+                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                                <span data-run-copy-label>Copy command</span>
+                            </button>
                             <pre class="h-full max-h-[min(50vh,420px)] min-w-0 w-full max-w-full p-4 sm:p-5 text-sm font-mono leading-relaxed overflow-x-hidden overflow-y-auto text-slate-200 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><code data-snippet class="block w-full max-w-full">Loading command...</code></pre>
                         </div>
                         <p class="mt-3 text-[10px] text-center text-nvidia-gray-500">

@@ -449,6 +449,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         function buildShell(meta, st) {
           var engineLower = (st.engine || '').toLowerCase();
 
+          if (meta.useEvalMatrix && meta.evalSnippetByModule && st.activeModule && st.tab === 'shell') {
+            var er = meta.evalSnippetByModule[st.activeModule];
+            if (er && er.shell) return er.shell;
+            return '# No shell snippet for this module.';
+          }
+
           if (meta.useMatrix && meta.moduleCommandMatrix && st.activeModule) {
             var row = meta.moduleCommandMatrix[st.activeModule];
             if (row) {
@@ -553,6 +559,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         }
 
         function buildPython(meta, st) {
+          if (meta.useEvalMatrix && meta.evalSnippetByModule && st.activeModule && st.tab === 'python') {
+            var erp = meta.evalSnippetByModule[st.activeModule];
+            if (erp && erp.python) return erp.python;
+            return '# No Python snippet for this module.';
+          }
           var base = [
             'import requests',
             '',
@@ -583,11 +594,14 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           var checked = modal.querySelector('input[name="engine-' + id + '"]:checked');
           var engineSel = modal.querySelector('[data-engine]');
           var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
+          var useEvalMatrix = !!(meta.useEvalMatrix && meta.evalModalVisibleModules && meta.evalModalVisibleModules.length);
 
           // Get engine value with multiple fallbacks
           var engineVal = '';
           if (useMatrix) {
             engineVal = modal.getAttribute('data-active-engine') || meta.defaultEngineId || 'vllm';
+          } else if (useEvalMatrix) {
+            engineVal = 'eval';
           } else if (engineSel && engineSel.value) {
             engineVal = engineSel.value;
           } else if (checked && checked.value) {
@@ -599,7 +613,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
 
           var deviceVal;
-          if (useMatrix) {
+          if (useMatrix || useEvalMatrix) {
             var am = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta);
             var plat = meta.moduleIdToPlatform && am ? meta.moduleIdToPlatform[am] : 'orin';
             deviceVal = plat === 'thor' ? 'Jetson Thor' : 'Jetson Orin';
@@ -608,7 +622,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           }
 
           var activeModule = '';
-          if (useMatrix) {
+          if (useMatrix || useEvalMatrix) {
             activeModule = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta) || '';
           }
 
@@ -642,6 +656,15 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           var metaStr = modal.getAttribute('data-meta') || '{}';
           var meta = JSON.parse(metaStr);
           var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
+          var useEvalMatrix = !!(meta.useEvalMatrix && meta.evalModalVisibleModules && meta.evalModalVisibleModules.length);
+
+          if (useEvalMatrix) {
+            if (vllmConfig) vllmConfig.classList.add('hidden');
+            if (hfSection) hfSection.classList.add('hidden');
+            var advStripE = qs(modal, '[data-run-matrix-advanced-strip]');
+            if (advStripE) advStripE.classList.add('hidden');
+            return;
+          }
 
           var engineVal = '';
           if (useMatrix) {
@@ -659,7 +682,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           if (hfSection) {
             var deviceVal = '';
-            if (useMatrix) {
+            if (useMatrix || useEvalMatrix) {
               var am = modal.getAttribute('data-active-module') || firstEnabledRunModuleId(meta);
               var plat = meta.moduleIdToPlatform && am ? meta.moduleIdToPlatform[am] : 'orin';
               deviceVal = plat === 'thor' ? 'Jetson Thor' : 'Jetson Orin';
@@ -667,23 +690,91 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               var deviceSel = qs(modal, '[data-device]');
               deviceVal = deviceSel ? deviceSel.value : '';
             }
-            if (meta.needsHfToken && deviceVal === 'Jetson Thor') {
+            if (meta.needsHfToken && deviceVal === 'Jetson Thor' && !useEvalMatrix) {
               hfSection.classList.remove('hidden');
             } else {
               hfSection.classList.add('hidden');
             }
           }
 
+          var hfVis = !!(hfSection && !hfSection.classList.contains('hidden'));
+          var vllmVis = !!(vllmConfig && !vllmConfig.classList.contains('hidden'));
           var advStrip = qs(modal, '[data-run-matrix-advanced-strip]');
-          if (advStrip && hfSection && vllmConfig) {
-            var hfVis = !hfSection.classList.contains('hidden');
-            var vllmVis = !vllmConfig.classList.contains('hidden');
+          if (advStrip) {
             advStrip.classList.toggle('hidden', !hfVis && !vllmVis);
+          }
+          var legacyAdv = qs(modal, '[data-run-legacy-advanced]');
+          if (legacyAdv) {
+            legacyAdv.classList.toggle('hidden', !hfVis && !vllmVis);
           }
         }
 
-        function syncRunModalMatrixUi(modal, meta) {
+        function updateRunModalModuleTabAvailability(modal, meta) {
+          if (meta.useEvalMatrix) return;
           if (!meta.useMatrix || !meta.modalVisibleModules || !meta.modalVisibleModules.length) return;
+          var map = meta.modulesSupportedByEngine || {};
+          var ae = (modal.getAttribute('data-active-engine') || '').toLowerCase();
+          function allowedForEngine() {
+            if (Object.prototype.hasOwnProperty.call(map, ae)) return map[ae];
+            for (var k in map) {
+              if (Object.prototype.hasOwnProperty.call(map, k) && String(k).toLowerCase() === ae) return map[k];
+            }
+            return null;
+          }
+          var allowed = allowedForEngine();
+          modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
+            var mid = btn.getAttribute('data-run-module-tab');
+            var global = btn.getAttribute('data-run-module-global-disabled') === '1';
+            var engOff = false;
+            if (allowed != null && Array.isArray(allowed)) {
+              if (allowed.length === 0) engOff = true;
+              else engOff = allowed.indexOf(mid) === -1;
+            }
+            var dis = global || engOff;
+            btn.disabled = dis;
+            if (dis) {
+              btn.classList.add('cursor-not-allowed', 'bg-[#999999]', 'text-nvidia-black', 'border-b-transparent', 'pointer-events-none');
+              btn.classList.remove(
+                'bg-nvidia-green/25',
+                'border-b-nvidia-green',
+                'ring-1',
+                'ring-inset',
+                'ring-nvidia-green/30',
+                'bg-white',
+                'text-nvidia-gray-600',
+                'hover:bg-nvidia-gray-50',
+                'hover:text-nvidia-black',
+                'hover:border-b-nvidia-gray-200'
+              );
+              btn.setAttribute('aria-selected', 'false');
+            } else {
+              btn.classList.remove(
+                'cursor-not-allowed',
+                'bg-[#999999]',
+                'text-nvidia-black',
+                'pointer-events-none'
+              );
+            }
+          });
+          var am = modal.getAttribute('data-active-module');
+          var activeBtn = am && modal.querySelector('[data-run-module-tab="' + am + '"]');
+          if (!activeBtn || activeBtn.disabled) {
+            var firstOk = modal.querySelector('[data-run-module-tab]:not(:disabled)');
+            if (firstOk) {
+              modal.setAttribute('data-active-module', firstOk.getAttribute('data-run-module-tab') || '');
+            }
+          }
+          syncRunModalMatrixUi(modal, meta);
+        }
+
+        function syncRunModalMatrixUi(modal, meta) {
+          var modList = [];
+          if (meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length) {
+            modList = meta.modalVisibleModules;
+          } else if (meta.useEvalMatrix && meta.evalModalVisibleModules && meta.evalModalVisibleModules.length) {
+            modList = meta.evalModalVisibleModules;
+          }
+          if (!modList.length) return;
           var am = modal.getAttribute('data-active-module');
           var ae = modal.getAttribute('data-active-engine');
           modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
@@ -693,29 +784,42 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             }
             var on = btn.getAttribute('data-run-module-tab') === am;
             btn.setAttribute('aria-selected', on ? 'true' : 'false');
-            btn.classList.toggle('bg-nvidia-gray-50/90', on);
-            btn.classList.toggle('bg-transparent', !on);
+            btn.classList.toggle('bg-nvidia-green/25', on);
+            btn.classList.toggle('text-nvidia-black', on);
             btn.classList.toggle('border-b-nvidia-green', on);
-            btn.classList.toggle('text-nvidia-green', on);
+            btn.classList.toggle('ring-1', on);
+            btn.classList.toggle('ring-inset', on);
+            btn.classList.toggle('ring-nvidia-green/30', on);
+            btn.classList.toggle('bg-white', !on);
+            btn.classList.toggle('text-nvidia-gray-600', !on);
             btn.classList.toggle('border-b-transparent', !on);
-            btn.classList.toggle('text-gray-500', !on);
-            btn.classList.toggle('hover:bg-nvidia-gray-50/80', !on);
+            btn.classList.toggle('hover:bg-nvidia-gray-50', !on);
             btn.classList.toggle('hover:text-nvidia-black', !on);
-            btn.classList.toggle('hover:border-b-gray-300', !on);
+            btn.classList.toggle('hover:border-b-nvidia-gray-200', !on);
           });
-          modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
-            var on = btn.getAttribute('data-run-engine-btn') === ae;
-            btn.classList.toggle('border-b-nvidia-green', on);
-            btn.classList.toggle('lg:border-l-nvidia-green', on);
-            btn.classList.toggle('text-nvidia-green', on);
-            btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
-            btn.classList.toggle('border-b-transparent', !on);
-            btn.classList.toggle('lg:border-l-transparent', !on);
-            btn.classList.toggle('text-gray-500', !on);
-            btn.classList.toggle('hover:text-nvidia-black', !on);
-            btn.classList.toggle('hover:border-b-gray-300', !on);
-            btn.classList.toggle('lg:hover:border-l-gray-300', !on);
-          });
+          if (meta.useMatrix) {
+            function normRunEngineId(s) {
+              return String(s || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[.\-_]/g, '');
+            }
+            var aeNorm = normRunEngineId(ae);
+            modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
+              var on = normRunEngineId(btn.getAttribute('data-run-engine-btn')) === aeNorm;
+              btn.setAttribute('aria-selected', on ? 'true' : 'false');
+              btn.classList.toggle('border-b-nvidia-green', on);
+              btn.classList.toggle('lg:border-l-nvidia-green', on);
+              btn.classList.toggle('text-nvidia-green', on);
+              btn.classList.toggle('lg:bg-nvidia-gray-50/80', on);
+              btn.classList.toggle('border-b-transparent', !on);
+              btn.classList.toggle('lg:border-l-transparent', !on);
+              btn.classList.toggle('text-gray-500', !on);
+              btn.classList.toggle('hover:text-nvidia-black', !on);
+              btn.classList.toggle('hover:border-b-gray-300', !on);
+              btn.classList.toggle('lg:hover:border-l-gray-300', !on);
+            });
+          }
         }
 
         function render(modal) {
@@ -771,21 +875,28 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           if (metaOpen.useMatrix && metaOpen.defaultModuleId) {
             modal.setAttribute('data-active-module', metaOpen.defaultModuleId);
             modal.setAttribute('data-active-engine', metaOpen.defaultEngineId || 'vllm');
+            updateRunModalModuleTabAvailability(modal, metaOpen);
+          } else if (metaOpen.useEvalMatrix && metaOpen.defaultEvalModuleId) {
+            modal.setAttribute('data-active-module', metaOpen.defaultEvalModuleId);
             syncRunModalMatrixUi(modal, metaOpen);
           }
           // Force active tab to shell if not set
           if (!modal.getAttribute('data-tab')) {
-             modal.setAttribute('data-tab', 'shell');
+             var initTab = 'shell';
+             if (metaOpen.useEvalMatrix && !metaOpen.evalShowShell && metaOpen.evalShowPython) {
+               initTab = 'python';
+             }
+             modal.setAttribute('data-tab', initTab);
              // Update button visual state - only target actual buttons, not the modal itself
-             var shellBtn = modal.querySelector('button[data-tab="shell"]');
-             if(shellBtn) {
+             var pickBtn = modal.querySelector('button[data-tab="' + initTab + '"]');
+             if (pickBtn) {
                  var all = qsa(modal, 'button[data-tab]');
                  all.forEach(function (b) {
-                    b.classList.remove('bg-nvidia-black','text-nvidia-white','border-nvidia-black');
+                    b.classList.remove('bg-nvidia-black','text-nvidia-white','border-nvidia-black','shadow-sm');
                     b.classList.add('bg-nvidia-gray-100','text-nvidia-gray-800','border-nvidia-gray-200');
                  });
-                 shellBtn.classList.add('bg-nvidia-black','text-nvidia-white','border-nvidia-black');
-                 shellBtn.classList.remove('bg-nvidia-gray-100','text-nvidia-gray-800','border-nvidia-gray-200');
+                 pickBtn.classList.add('bg-nvidia-black','text-nvidia-white','border-nvidia-black','shadow-sm');
+                 pickBtn.classList.remove('bg-nvidia-gray-100','text-nvidia-gray-800','border-nvidia-gray-200');
              }
           }
           // Show/hide vLLM config based on current engine
@@ -841,6 +952,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 try {
                   var meta = JSON.parse(modal.getAttribute('data-meta') || '{}');
                   var useMatrix = !!(meta.useMatrix && meta.modalVisibleModules && meta.modalVisibleModules.length);
+                  var useEvalMatrix = !!(meta.useEvalMatrix && meta.evalModalVisibleModules && meta.evalModalVisibleModules.length);
                   var moduleId = '';
                   var moduleLabel = '';
                   var engineId = '';
@@ -854,6 +966,15 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                       if (mods[i].id === moduleId) { mi = mods[i]; break; }
                     }
                     moduleLabel = mi ? (mi.label || mi.shortLabel || moduleId) : moduleId;
+                  } else if (useEvalMatrix) {
+                    moduleId = modal.getAttribute('data-active-module') || '';
+                    engineId = 'one_shot';
+                    var emods = meta.evalModalVisibleModules || [];
+                    var ej;
+                    for (var j = 0; j < emods.length; j++) {
+                      if (emods[j].id === moduleId) { ej = emods[j]; break; }
+                    }
+                    moduleLabel = ej ? (ej.label || ej.shortLabel || moduleId) : moduleId;
                   } else {
                     var devEl = qs(modal, '[data-device]');
                     var engEl = qs(modal, '[data-engine]');
@@ -868,13 +989,18 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                     module_id: moduleId,
                     module_label: moduleLabel,
                     inference_engine: engineId,
-                    jetson_device: useMatrix ? undefined : jetsonDevice
+                    jetson_device: useMatrix || useEvalMatrix ? undefined : jetsonDevice
                   });
                 } catch (err) { /* ignore analytics */ }
               });
-              var original = copyBtn.textContent;
-              copyBtn.textContent = 'Copied';
-              setTimeout(function () { copyBtn.textContent = original || 'Copy'; }, 1200);
+              var label = copyBtn.querySelector('[data-run-copy-label]');
+              var original = label ? (label.textContent || '') : (copyBtn.textContent || '');
+              if (label) label.textContent = 'Copied';
+              else copyBtn.textContent = 'Copied';
+              setTimeout(function () {
+                if (label) label.textContent = original || 'Copy command';
+                else copyBtn.textContent = original || 'Copy';
+              }, 1200);
             }
             return;
           }
@@ -900,7 +1026,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             var eid = engMatrixBtn.getAttribute('data-run-engine-btn');
             if (eid) modalE.setAttribute('data-active-engine', eid);
             var metaE = JSON.parse(modalE.getAttribute('data-meta') || '{}');
-            syncRunModalMatrixUi(modalE, metaE);
+            updateRunModalModuleTabAvailability(modalE, metaE);
             updateVllmConfigVisibility(modalE);
             render(modalE);
             return;
@@ -909,7 +1035,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           var advToggle = e.target.closest('[data-run-advanced-toggle]');
           if (advToggle) {
             var modal = advToggle.closest('[data-run-modal]');
-            var panel = modal && qs(modal, '[data-advanced]');
+            var scope = advToggle.closest('[data-run-advanced-scope]');
+            var panel = scope ? scope.querySelector('[data-advanced]') : (modal && qs(modal, '[data-advanced]'));
             var toggleText = advToggle.querySelector('[data-toggle-text]');
             var toggleIcon = advToggle.querySelector('[data-toggle-icon]');
             if (panel) {

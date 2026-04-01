@@ -1,7 +1,7 @@
 import { enginesForCategory, type InferenceCategory } from './engines';
 import type { InferenceEngine } from './engines';
 
-/** Mirrors model frontmatter `supported_inference_engines` entries */
+/** Mirrors model frontmatter `supported_inference_engines` / `serving.entries` */
 export interface SupportedEngineEntry {
 	engine: string;
 	type?: string;
@@ -11,6 +11,10 @@ export interface SupportedEngineEntry {
 	run_command_orin?: string;
 	install_command_thor?: string;
 	run_command_thor?: string;
+	/** If set and non-empty, only these matrix module ids are enabled for this engine (others grayed). */
+	modules_supported?: string[];
+	/** Per-module run command (optional). Key = module id, e.g. `orin_agx_64`. */
+	run_commands_by_module?: Record<string, string>;
 }
 
 export type PlatformKey = 'orin' | 'thor';
@@ -30,8 +34,12 @@ export interface JetsonModuleSpec {
 	/** Matrix tab third line — muted gray (e.g. developer kit name), if any */
 	tabSubtitleGray?: string;
 	platformKey: PlatformKey;
-	/** Optional path under `public/` e.g. `/images/modules/thor-t5000.png` */
+	/** Optional path under `public/` e.g. `/images/jetson-soms/thor_t5000.png` */
 	iconSrc?: string;
+	/** Small label on the icon frame (top-left), e.g. Thor / Orin */
+	iconBadgeFamily?: string;
+	/** Small label on the icon frame (bottom-right), e.g. 128GB */
+	iconBadgeMemory?: string;
 	/** When true, tab is shown but not selectable (e.g. coming soon). */
 	disabled?: boolean;
 	/**
@@ -56,6 +64,9 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabTitleBold: 'T5000 module',
 		tabSubtitleGray: 'Jetson AGX Thor Developer Kit',
 		platformKey: 'thor',
+		iconSrc: '/images/jetson-soms/thor_t5000.png',
+		iconBadgeFamily: 'Thor',
+		iconBadgeMemory: '128GB',
 	},
 	{
 		id: 'thor_t4000',
@@ -64,6 +75,9 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabKicker: 'Jetson',
 		tabTitleBold: 'T4000 module',
 		platformKey: 'thor',
+		iconSrc: '/images/jetson-soms/thor_t4000.png',
+		iconBadgeFamily: 'Thor',
+		iconBadgeMemory: '64GB',
 	},
 	{
 		id: 'orin_agx_64',
@@ -73,6 +87,9 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabTitleBold: 'AGX Orin 64GB module',
 		tabSubtitleGray: 'Jetson AGX Orin 64GB Developer Kit',
 		platformKey: 'orin',
+		iconSrc: '/images/jetson-soms/orin_agx_64.png',
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '64GB',
 	},
 	{
 		id: 'orin_agx_32',
@@ -83,6 +100,8 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabSubtitleGray: 'Jetson AGX Orin 32GB Developer Kit',
 		platformKey: 'orin',
 		showInMatrixUi: false,
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '32GB',
 	},
 	{
 		id: 'orin_nx_16',
@@ -91,6 +110,9 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabKicker: 'Jetson',
 		tabTitleBold: 'Orin NX 16GB module',
 		platformKey: 'orin',
+		iconSrc: '/images/jetson-soms/orin_nx_16.png',
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '16GB',
 	},
 	{
 		id: 'orin_nx_8',
@@ -100,6 +122,8 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabTitleBold: 'Orin NX 8GB module',
 		platformKey: 'orin',
 		showInMatrixUi: false,
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '8GB',
 	},
 	{
 		id: 'orin_nano_8',
@@ -109,6 +133,9 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabTitleBold: 'Orin Nano 8GB module',
 		tabSubtitleGray: 'Jetson Orin Nano 8GB Developer Kit',
 		platformKey: 'orin',
+		iconSrc: '/images/jetson-soms/orin_nano_8.png',
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '8GB',
 	},
 	{
 		id: 'orin_nano_4',
@@ -119,6 +146,8 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 		tabSubtitleGray: 'Jetson Orin Nano 4GB Developer Kit',
 		platformKey: 'orin',
 		showInMatrixUi: false,
+		iconBadgeFamily: 'Orin',
+		iconBadgeMemory: '4GB',
 	},
 ] as const;
 
@@ -136,6 +165,44 @@ function normalizedEngineKey(s: string): string {
 }
 
 /** Install + run for one platform (same strings the model page and modal must show). */
+/** True if this engine lists the module as supported (omit `modules_supported` = all modules). */
+export function engineSupportsModule(e: SupportedEngineEntry, moduleId: string): boolean {
+	const ms = e.modules_supported;
+	if (ms === undefined || ms === null) return true;
+	if (ms.length === 0) return false;
+	return ms.includes(moduleId);
+}
+
+function combineInstallAndRunBody(
+	e: SupportedEngineEntry,
+	platform: PlatformKey,
+	runBody: string
+): string {
+	const install =
+		platform === 'thor'
+			? (e.install_command_thor ?? e.install_command)
+			: (e.install_command_orin ?? e.install_command);
+	let combined = '';
+	if (install) combined += `# Installation\n${install}`;
+	if (runBody?.trim()) {
+		if (combined) combined += '\n\n';
+		combined += `# Run Command\n${runBody.trim()}`;
+	}
+	return combined;
+}
+
+/** Orin/Thor row has content: platform run fields and/or per-module run for any module on that platform. */
+export function engineHasPlatformContent(e: SupportedEngineEntry, platform: PlatformKey): boolean {
+	if (combineInstallRunForPlatform(e, platform)) return true;
+	const byMod = e.run_commands_by_module;
+	if (!byMod) return false;
+	for (const mod of JETSON_MATRIX_MODULES) {
+		if (mod.platformKey !== platform) continue;
+		if (byMod[mod.id]?.trim()) return true;
+	}
+	return false;
+}
+
 export function combineInstallRunForPlatform(
 	e: SupportedEngineEntry,
 	platform: PlatformKey
@@ -164,18 +231,62 @@ export function combineInstallRunForModule(
 	return combineInstallRunForPlatform(e, module.platformKey);
 }
 
+/**
+ * Command shown in the Serve matrix / Run modal for one engine × module cell.
+ * Respects `modules_supported` and optional `run_commands_by_module[moduleId]`.
+ */
+export function serveCommandForMatrixCell(
+	e: SupportedEngineEntry,
+	module: JetsonModuleSpec
+): string {
+	if (!engineSupportsModule(e, module.id)) return '';
+	const specific = e.run_commands_by_module?.[module.id];
+	if (specific !== undefined && specific.trim() !== '') {
+		return combineInstallAndRunBody(e, module.platformKey, specific);
+	}
+	return combineInstallRunForModule(e, module);
+}
+
 /** Matrix tabs only: Orin vs Thor availability, and {@link JetsonModuleSpec.showInMatrixUi} !== false. */
 export function visibleModulesForEngines(engines: SupportedEngineEntry[]): JetsonModuleSpec[] {
 	let hasOrin = false;
 	let hasThor = false;
 	for (const e of engines) {
-		if (combineInstallRunForPlatform(e, 'orin')) hasOrin = true;
-		if (combineInstallRunForPlatform(e, 'thor')) hasThor = true;
+		if (engineHasPlatformContent(e, 'orin')) hasOrin = true;
+		if (engineHasPlatformContent(e, 'thor')) hasThor = true;
 	}
 	return JETSON_MATRIX_MODULES.filter(
 		(m) =>
 			m.showInMatrixUi !== false && (m.platformKey === 'thor' ? hasThor : hasOrin)
 	);
+}
+
+/**
+ * Matrix tab module ids the model can run on (any listed inference engine has a non-empty serve command,
+ * respects `modules_supported` and `matrix_modules_disabled`). Used for catalog filtering.
+ */
+export function matrixRunnableModuleIdsForModel(
+	category: InferenceCategory,
+	engines: SupportedEngineEntry[],
+	matrixModulesDisabled?: readonly string[] | null
+): string[] {
+	if (!engines.length) return [];
+	const base = visibleModulesForEngines(engines);
+	const flagged = applyMatrixModuleDisabledFlags(base, matrixModulesDisabled);
+	const uiEngines = filterEnginesForModel(category, engines);
+	const union = new Set<string>();
+	for (const mod of flagged) {
+		if (mod.disabled) continue;
+		for (const ui of uiEngines) {
+			const entry = matchSupportedEngine(engines, ui.id);
+			if (!entry) continue;
+			if (!engineSupportsModule(entry, mod.id)) continue;
+			if (!serveCommandForMatrixCell(entry, mod).trim()) continue;
+			union.add(mod.id);
+			break;
+		}
+	}
+	return Array.from(union);
 }
 
 /**
@@ -266,7 +377,7 @@ export function buildModuleCommandMatrix(
 		for (const ui of uiEngines) {
 			const entry = matchSupportedEngine(supportedEngines, ui.id);
 			if (entry) {
-				out[mod.id][ui.id] = combineInstallRunForModule(entry, mod);
+				out[mod.id][ui.id] = serveCommandForMatrixCell(entry, mod);
 			}
 		}
 	}

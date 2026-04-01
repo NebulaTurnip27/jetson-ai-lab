@@ -37,6 +37,8 @@ const supportedInferenceEngineEntrySchema = z.object({
 	run_command_orin: z.string().optional(),
 	install_command_thor: z.string().optional(),
 	run_command_thor: z.string().optional(),
+	modules_supported: z.array(z.string()).optional(),
+	run_commands_by_module: z.record(z.string()).optional(),
 });
 
 /** New shape: when `serving.entries` is non-empty it overrides `supported_inference_engines` in the UI adapter. */
@@ -95,6 +97,8 @@ const modelsSchema = z.object({
 			shell: z.string().optional(),
 			python: z.string().optional(),
 			intro: z.string().optional(),
+			shell_by_module: z.record(z.string()).optional(),
+			python_by_module: z.record(z.string()).optional(),
 		})
 		.optional(),
 	benchmark: z
@@ -113,11 +117,18 @@ const models = defineCollection({
 		if (data.hide_run_button) return;
 		const hasServing = (data.serving?.entries?.length ?? 0) > 0;
 		const hasLegacy = (data.supported_inference_engines?.length ?? 0) > 0;
-		if (!hasServing && !hasLegacy) {
+		const os = data.one_shot_inference;
+		const hasEval =
+			!!os &&
+			(!!os.shell?.trim() ||
+				!!os.python?.trim() ||
+				!!(os.shell_by_module && Object.values(os.shell_by_module).some((s) => String(s).trim())) ||
+				!!(os.python_by_module && Object.values(os.python_by_module).some((s) => String(s).trim())));
+		if (!hasServing && !hasLegacy && !hasEval) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message:
-					'Provide supported_inference_engines and/or serving.entries (non-empty), or set hide_run_button: true.',
+					'Provide supported_inference_engines and/or serving.entries (non-empty), one_shot_inference commands, or set hide_run_button: true.',
 				path: ['supported_inference_engines'],
 			});
 		}

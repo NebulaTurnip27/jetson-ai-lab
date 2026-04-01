@@ -1,4 +1,36 @@
 /**
+ * Python: must not run string/regex passes after injecting &lt;span&gt; tags, or `"` inside
+ * attributes is treated as a string literal and breaks the DOM (e.g. "text-purple-400">from).
+ */
+function highlightPythonLine(line: string): string {
+	const trimmed = line.trim();
+	if (trimmed.startsWith('#')) {
+		return `<span class="text-slate-500">${escapeHtml(line)}</span>`;
+	}
+	const escaped = escapeHtml(line);
+	const chunks: string[] = [];
+	// Double- and single-quoted strings with backslash escapes (common in client examples)
+	const withoutStrings = escaped.replace(
+		/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,
+		(m) => {
+			chunks.push(`<span class="text-emerald-400">${m}</span>`);
+			return `\uE000${chunks.length - 1}\uE001`;
+		},
+	);
+	const keywords =
+		/\b(import|from|def|class|return|if|else|elif|try|except|finally|for|while|in|is|not|and|or|as|with|pass|break|continue|lambda|yield|async|await|True|False|None)\b/g;
+	const builtins =
+		/\b(print|len|str|int|dict|list|tuple|set|open|requests|json|super|self|cls|OpenAI)\b/g;
+	let out = withoutStrings
+		.replace(keywords, '<span class="text-purple-400">$1</span>')
+		.replace(builtins, '<span class="text-cyan-400">$1</span>');
+	for (let i = 0; i < chunks.length; i++) {
+		out = out.replace(`\uE000${i}\uE001`, chunks[i]!);
+	}
+	return out;
+}
+
+/**
  * Client-safe shell/python/yaml highlighting (matches Run modal in Layout.astro).
  */
 export function escapeHtml(text: string): string {
@@ -30,18 +62,7 @@ export function highlightSyntax(txt: string, lang: string): string {
 	if (lang === 'python') {
 		return txt
 			.split('\n')
-			.map((line) => {
-				if (line.trim().startsWith('#')) {
-					return `<span class="text-slate-500">${escapeHtml(line)}</span>`;
-				}
-				return escapeHtml(line)
-					.replace(
-						/\b(import|from|def|class|return|if|else|elif|try|except|for|while|in|as|with|True|False|None)\b/g,
-						'<span class="text-purple-400">$1</span>',
-					)
-					.replace(/\b(print|requests|json)\b/g, '<span class="text-cyan-400">$1</span>')
-					.replace(/(["'][^"']*["'])/g, '<span class="text-emerald-400">$1</span>');
-			})
+			.map((line) => highlightPythonLine(line))
 			.join('\n');
 	}
 	if (lang === 'yaml') {

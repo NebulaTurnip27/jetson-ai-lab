@@ -1,12 +1,23 @@
 import type { SupportedEngineEntry } from './inferenceCommands';
 
-function normEngine(name: string): string {
+/** Matches inference panel `data-engine` labels (e.g. "Ollama" → "ollama"). */
+export function normalizeInferenceEngineKey(name: string): string {
 	return name.toLowerCase().replace(/[.\-_]/g, '');
+}
+
+function normEngine(name: string): string {
+	return normalizeInferenceEngineKey(name);
 }
 
 function pickRunSample(e: SupportedEngineEntry): string {
 	return e.run_command_orin || e.run_command_thor || e.run_command || '';
 }
+
+/** Normalized `engine` field from model front matter — matches inference panel selection. */
+export type ClientCallEngineKey = 'vllm' | 'ollama' | 'llamacpp';
+
+/** For Ollama only: OpenAI-compatible `/v1` vs native `/api/generate`. */
+export type ClientCallApiStyle = 'openai_compat' | 'ollama_native';
 
 export interface ClientCallExample {
 	engineLabel: string;
@@ -16,6 +27,13 @@ export interface ClientCallExample {
 	lang?: 'shell' | 'python';
 	/** When false, engineLabel is still used for analytics but not shown as a heading */
 	showEngineHeading?: boolean;
+	/**
+	 * When set, this snippet is shown only if that inference engine is selected above.
+	 * Omit for frontmatter examples (always visible).
+	 */
+	callEngineKey?: ClientCallEngineKey;
+	/** When set (Ollama), shown only when the Call section API-style tab matches. */
+	callApiStyle?: ClientCallApiStyle;
 }
 
 export interface ClientExampleOptions {
@@ -48,6 +66,28 @@ completion = client.chat.completions.create(
 print(completion.choices[0].message.content)`;
 }
 
+function pythonNativeOllamaExample(tag: string): string {
+	return `import json
+import urllib.request
+
+url = "http://\${JETSON_HOST}:11434/api/generate"
+payload = json.dumps(
+    {
+        "model": "${tag}",
+        "prompt": "Why is the sky blue?",
+        "stream": False,
+    }
+).encode("utf-8")
+req = urllib.request.Request(
+    url,
+    data=payload,
+    headers={"Content-Type": "application/json"},
+)
+with urllib.request.urlopen(req) as resp:
+    body = json.load(resp)
+    print(body.get("response", body))`;
+}
+
 /**
  * Minimal HTTP + OpenAI Python SDK examples (not per Jetson module — caller may be another machine).
  */
@@ -71,6 +111,7 @@ export function buildClientCallExamples(
 				opts.modelId.replace(/-/g, '_') ||
 				'your-model-id';
 			out.push({
+				callEngineKey: 'vllm',
 				engineLabel: 'vLLM (OpenAI-compatible HTTP API)',
 				lang: 'shell',
 				intro: '',
@@ -83,10 +124,11 @@ export function buildClientCallExamples(
   }'`,
 			});
 			out.push({
+				callEngineKey: 'vllm',
 				engineLabel: 'Python (OpenAI SDK)',
 				lang: 'python',
 				intro: '',
-				showEngineHeading: true,
+				showEngineHeading: false,
 				command: openaiSdkPythonExample(8000, model, 'compat', 'Hello!'),
 			});
 			continue;
@@ -97,6 +139,7 @@ export function buildClientCallExamples(
 			const aliasMatch = runSample.match(/--alias\s+(\S+)/);
 			const modelName = aliasMatch?.[1] || 'my_model';
 			out.push({
+				callEngineKey: 'llamacpp',
 				engineLabel: 'llama.cpp server (OpenAI-compatible API)',
 				lang: 'shell',
 				intro:
@@ -109,10 +152,11 @@ export function buildClientCallExamples(
   }'`,
 			});
 			out.push({
+				callEngineKey: 'llamacpp',
 				engineLabel: 'Python (OpenAI SDK)',
 				lang: 'python',
 				intro: '',
-				showEngineHeading: true,
+				showEngineHeading: false,
 				command: openaiSdkPythonExample(8080, modelName, 'compat', 'Hello!'),
 			});
 			continue;
@@ -124,11 +168,29 @@ export function buildClientCallExamples(
 				opts.hfCheckpoint?.split('/').pop() ||
 				opts.modelId.replace(/_/g, '-') ||
 				'your-model';
+			const ollamaIntro =
+				'With <code class="text-xs bg-nvidia-gray-100 px-1 rounded">ollama serve</code> on the Jetson, call from another host (set <code class="text-xs bg-nvidia-gray-100 px-1 rounded">${JETSON_HOST}</code> or use the field). Match the model name to what you pulled on device.';
 			out.push({
-				engineLabel: 'Ollama HTTP API',
+				callEngineKey: 'ollama',
+				callApiStyle: 'openai_compat',
+				engineLabel: 'cURL (OpenAI-compatible /v1)',
 				lang: 'shell',
-				intro:
-					'With ollama serve running on the Jetson, generate from another host (set <code class="text-xs bg-nvidia-gray-100 px-1 rounded">${JETSON_HOST}</code> or use the field; match model name to what you pulled on device).',
+				intro: ollamaIntro,
+				showEngineHeading: false,
+				command: `curl -s http://\${JETSON_HOST}:11434/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${tag}",
+    "messages": [{"role": "user", "content": "Why is the sky blue?"}]
+  }'`,
+			});
+			out.push({
+				callEngineKey: 'ollama',
+				callApiStyle: 'ollama_native',
+				engineLabel: 'cURL (Ollama /api/generate)',
+				lang: 'shell',
+				intro: ollamaIntro,
+				showEngineHeading: false,
 				command: `curl -s http://\${JETSON_HOST}:11434/api/generate -d '{
   "model": "${tag}",
   "prompt": "Why is the sky blue?",
@@ -136,11 +198,22 @@ export function buildClientCallExamples(
 }'`,
 			});
 			out.push({
-				engineLabel: 'Python (OpenAI SDK · Ollama /v1)',
+				callEngineKey: 'ollama',
+				callApiStyle: 'openai_compat',
+				engineLabel: 'Python (OpenAI SDK · /v1)',
 				lang: 'python',
 				intro: '',
-				showEngineHeading: true,
+				showEngineHeading: false,
 				command: openaiSdkPythonExample(11434, tag, 'ollama', 'Why is the sky blue?'),
+			});
+			out.push({
+				callEngineKey: 'ollama',
+				callApiStyle: 'ollama_native',
+				engineLabel: 'Python (urllib · /api/generate)',
+				lang: 'python',
+				intro: '',
+				showEngineHeading: false,
+				command: pythonNativeOllamaExample(tag),
 			});
 		}
 	}

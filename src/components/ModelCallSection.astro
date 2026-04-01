@@ -1,6 +1,10 @@
 ---
 import type { SupportedEngineEntry } from '../lib/inferenceCommands';
-import { buildClientCallExamples, type ClientCallExample } from '../lib/modelClientExamples';
+import {
+	buildClientCallExamples,
+	normalizeInferenceEngineKey,
+	type ClientCallExample,
+} from '../lib/modelClientExamples';
 
 interface ClientCallFrontmatter {
 	shell?: string;
@@ -13,9 +17,11 @@ interface Props {
 	modelSlug: string;
 	hfCheckpoint?: string;
 	clientCall?: ClientCallFrontmatter | null;
+	/** Merged onto the root section (e.g. stack with Serve panel under one background) */
+	sectionClass?: string;
 }
 
-const { engines, modelSlug, hfCheckpoint, clientCall } = Astro.props;
+const { engines, modelSlug, hfCheckpoint, clientCall, sectionClass = '' } = Astro.props;
 
 const fromFrontmatter: ClientCallExample[] = [];
 const ccIntro = clientCall?.intro?.trim();
@@ -55,32 +61,49 @@ const hasShellExamples = hasExamples && examples.some((ex) => exampleLang(ex) ==
 const hasPythonExamples = hasExamples && examples.some((ex) => exampleLang(ex) === 'python');
 const showCallLangTabs = hasShellExamples && hasPythonExamples;
 
-function isFirstExampleOfLang(i: number): boolean {
-	const lang = exampleLang(examples[i]);
-	return !examples.slice(0, i).some((ex) => exampleLang(ex) === lang);
-}
+const showCallApiStyleTabs =
+	hasExamples &&
+	examples.some(
+		(ex) =>
+			normalizeInferenceEngineKey(ex.callEngineKey || '') === 'ollama' &&
+			ex.callApiStyle === 'openai_compat',
+	) &&
+	examples.some(
+		(ex) =>
+			normalizeInferenceEngineKey(ex.callEngineKey || '') === 'ollama' &&
+			ex.callApiStyle === 'ollama_native',
+	);
 ---
 
 <section
 	id="call-model"
-	class="py-16 bg-white border-b border-nvidia-gray-200 scroll-mt-20"
+	class:list={[
+		'py-16 bg-white border-b border-nvidia-gray-200 scroll-mt-20',
+		sectionClass,
+	]}
 	aria-labelledby="call-model-heading"
 	data-model-slug={modelSlug}
+	data-default-inference-engine={engines[0]?.engine ?? ''}
 >
 	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 		<h2 id="call-model-heading" class="text-3xl font-bold text-nvidia-black mb-2">
 			Call the model
 		</h2>
-		<p class="text-sm text-nvidia-gray-600 max-w-3xl mb-8">
+		<p class="text-sm text-nvidia-gray-600 mb-8">
 			Set connection parameters on the left, then use the examples on the right (this machine or another host on the
-			network). When both are available, switch <strong>Shell</strong> or <strong>Python</strong> next to Copy command —
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">curl</code> vs the OpenAI SDK (
-			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">pip install openai</code>). Ports and model ids must match
-			your running server.
+			network). Generated snippets match the <strong>Inference engine</strong> you select in Serve this model above.
+			When both shell and Python examples exist, pick <strong>Shell</strong> or <strong>Python</strong> first —{' '}
+			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">curl</code> vs the OpenAI SDK or{' '}
+			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">urllib</code> (
+			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">pip install openai</code> for /v1). When Ollama is
+			selected, use <strong>OpenAI-compatible API</strong> vs <strong>Ollama API</strong> (to the right) to switch
+			between <code class="text-xs bg-nvidia-gray-100 px-1 rounded">/v1/chat/completions</code> and native{' '}
+			<code class="text-xs bg-nvidia-gray-100 px-1 rounded">/api/generate</code>. Ports and model ids must match your
+			running server.
 		</p>
 
 		{ccIntro && fromFrontmatter.length > 0 && (
-			<p class="text-sm text-nvidia-gray-700 max-w-3xl mb-6" set:html={ccIntro} />
+			<p class="text-sm text-nvidia-gray-700 mb-6" set:html={ccIntro} />
 		)}
 
 		{
@@ -148,8 +171,10 @@ function isFirstExampleOfLang(i: number): boolean {
 					}
 					<div class="min-w-0 flex-1 model-call-examples w-full">
 						{
-							showCallLangTabs && (
-								<div class="flex flex-wrap items-center justify-between gap-3 mb-4 min-w-0">
+							(showCallLangTabs || showCallApiStyleTabs) && (
+								<div class="flex flex-wrap items-center gap-3 mb-4 min-w-0">
+									<div class="flex flex-wrap items-center gap-2 min-w-0">
+									{showCallLangTabs && (
 									<div
 										class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200 shrink-0"
 										role="tablist"
@@ -178,21 +203,41 @@ function isFirstExampleOfLang(i: number): boolean {
 											Python
 										</button>
 									</div>
-									<button
-										type="button"
-										id="model-call-toolbar-copy"
-										class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold shrink-0"
-									>
-										<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-											/>
-										</svg>
-										<span data-model-call-toolbar-copy-label>Copy command</span>
-									</button>
+									)}
+									{showCallApiStyleTabs && (
+										<div
+											data-model-call-api-style-tabs
+											class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200 shrink-0 hidden"
+											role="tablist"
+											aria-label="Ollama API style"
+										>
+											<button
+												type="button"
+												role="tab"
+												id="model-call-tab-api-openai"
+												aria-selected="true"
+												aria-controls="model-call-example-panels"
+												data-model-call-api-tab="openai_compat"
+												class="model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold bg-nvidia-black text-nvidia-white shadow-sm transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left"
+												title="OpenAI-compatible endpoints (/v1/…)"
+											>
+												OpenAI-compatible API
+											</button>
+											<button
+												type="button"
+												role="tab"
+												id="model-call-tab-api-ollama"
+												aria-selected="false"
+												aria-controls="model-call-example-panels"
+												data-model-call-api-tab="ollama_native"
+												class="model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-nvidia-black transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left"
+												title="Ollama native HTTP (/api/generate)"
+											>
+												Ollama API
+											</button>
+										</div>
+									)}
+									</div>
 								</div>
 							)
 						}
@@ -205,6 +250,8 @@ function isFirstExampleOfLang(i: number): boolean {
 								class:list={['model-call-block', hideForTab && 'hidden']}
 								data-call-engine={ex.engineLabel}
 								data-call-example-lang={lang}
+								data-call-engine-key={ex.callEngineKey ?? ''}
+								data-call-api-style={ex.callApiStyle ?? ''}
 							>
 								{
 									ex.showEngineHeading !== false && (
@@ -212,28 +259,22 @@ function isFirstExampleOfLang(i: number): boolean {
 									)
 								}
 								{ex.intro.trim() && <p class="text-sm text-nvidia-gray-600 mb-4" set:html={ex.intro} />}
-								{
-									!(showCallLangTabs && isFirstExampleOfLang(i)) && (
-										<div class="flex flex-wrap items-center justify-end gap-2 mb-2">
-											<button
-												type="button"
-												class="model-call-copy-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-nvidia-gray-200 text-nvidia-gray-700 hover:border-nvidia-green hover:text-nvidia-green transition-all shadow-sm text-xs font-bold"
-												data-call-copy={i}
-											>
-												<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-													/>
-												</svg>
-												<span data-call-copy-label>Copy command</span>
-											</button>
-										</div>
-									)
-								}
-								<div class="rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] overflow-hidden">
+								<div class="relative rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] overflow-hidden">
+									<button
+										type="button"
+										class="model-call-copy-btn absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold"
+										data-call-copy={i}
+									>
+										<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+											/>
+										</svg>
+										<span data-call-copy-label>Copy command</span>
+									</button>
 									<pre
 										class="text-sm font-mono text-slate-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 m-0"
 									>
@@ -267,6 +308,7 @@ function isFirstExampleOfLang(i: number): boolean {
 		<script>
 			import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
 			import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+			import { normalizeInferenceEngineKey } from '../lib/modelClientExamples';
 
 			function initModelCallSection() {
 				const root = document.getElementById('call-model');
@@ -274,6 +316,23 @@ function isFirstExampleOfLang(i: number): boolean {
 				root.dataset.callInit = '1';
 				const pageModelSlug = root.dataset.modelSlug || 'unknown';
 				const hostInput = document.getElementById('model-call-jetson-host') as HTMLInputElement | null;
+				const showCallLangTabs = root.querySelectorAll('[data-model-call-lang-tab]').length > 0;
+				const apiStyleTabsWrap = root.querySelector<HTMLElement>('[data-model-call-api-style-tabs]');
+				const apiStyleTabs = root.querySelectorAll<HTMLButtonElement>('[data-model-call-api-tab]');
+				let callLang: 'shell' | 'python' = 'shell';
+				let callOllamaApiStyle: 'openai_compat' | 'ollama_native' = 'openai_compat';
+				let selectedEngineKey = normalizeInferenceEngineKey(root.dataset.defaultInferenceEngine || '');
+				let callCopyLabelTimer: ReturnType<typeof setTimeout> | null = null;
+
+				function resetModelCallCopyLabels() {
+					if (callCopyLabelTimer != null) {
+						clearTimeout(callCopyLabelTimer);
+						callCopyLabelTimer = null;
+					}
+					root.querySelectorAll<HTMLElement>('[data-call-copy-label]').forEach((el) => {
+						el.textContent = 'Copy command';
+					});
+				}
 
 				const callAdvToggle = document.getElementById('model-call-advanced-toggle');
 				const callAdvBody = document.getElementById('model-call-advanced-body');
@@ -289,12 +348,57 @@ function isFirstExampleOfLang(i: number): boolean {
 				});
 
 				const langTabs = root.querySelectorAll<HTMLButtonElement>('[data-model-call-lang-tab]');
-				function setCallLangTab(lang: 'shell' | 'python') {
+
+				function readEngineFromServePanel(): string | null {
+					const btn = document.querySelector(
+						'#serve-model .engine-rail-btn[aria-selected="true"]',
+					) as HTMLButtonElement | null;
+					const eng = btn?.getAttribute('data-engine')?.trim();
+					return eng || null;
+				}
+
+				function applyCallExampleVisibility() {
+					resetModelCallCopyLabels();
 					root.querySelectorAll<HTMLElement>('.model-call-block').forEach((el) => {
+						const blockKey = el.getAttribute('data-call-engine-key')?.trim() || '';
 						const blockLang = el.getAttribute('data-call-example-lang');
-						if (blockLang === lang) el.classList.remove('hidden');
-						else el.classList.add('hidden');
+						const rawApiStyle = el.getAttribute('data-call-api-style')?.trim() || '';
+						const langOk = !showCallLangTabs || blockLang === callLang;
+						const engineOk =
+							!blockKey || normalizeInferenceEngineKey(blockKey) === selectedEngineKey;
+						const apiOk =
+							selectedEngineKey !== 'ollama' ||
+							!rawApiStyle ||
+							rawApiStyle === callOllamaApiStyle;
+						el.classList.toggle('hidden', !(langOk && engineOk && apiOk));
 					});
+
+					if (apiStyleTabsWrap) {
+						const showApiBar = apiStyleTabs.length > 0 && selectedEngineKey === 'ollama';
+						apiStyleTabsWrap.classList.toggle('hidden', !showApiBar);
+					}
+				}
+
+				function setCallApiStyleTab(style: 'openai_compat' | 'ollama_native') {
+					callOllamaApiStyle = style;
+					applyCallExampleVisibility();
+					apiStyleTabs.forEach((btn) => {
+						const s = btn.getAttribute('data-model-call-api-tab');
+						const active = s === style;
+						btn.setAttribute('aria-selected', active ? 'true' : 'false');
+						const base =
+							'model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left';
+						btn.className =
+							base +
+							(active
+								? ' bg-nvidia-black text-nvidia-white shadow-sm'
+								: ' text-gray-500 hover:text-nvidia-black');
+					});
+				}
+
+				function setCallLangTab(lang: 'shell' | 'python') {
+					callLang = lang;
+					applyCallExampleVisibility();
 					langTabs.forEach((btn) => {
 						const l = btn.getAttribute('data-model-call-lang-tab');
 						const active = l === lang;
@@ -308,11 +412,36 @@ function isFirstExampleOfLang(i: number): boolean {
 								: ' text-gray-500 hover:text-nvidia-black');
 					});
 				}
+
+				function onInferenceEngineChanged(engineName: string) {
+					selectedEngineKey = normalizeInferenceEngineKey(engineName);
+					applyCallExampleVisibility();
+				}
+
+				document.addEventListener('jetson-inference-engine-changed', (ev) => {
+					const eng = (ev as CustomEvent<{ engine?: string }>).detail?.engine;
+					if (typeof eng === 'string' && eng.trim()) onInferenceEngineChanged(eng.trim());
+				});
+
 				langTabs.forEach((btn) => {
 					btn.addEventListener('click', () => {
 						const l = btn.getAttribute('data-model-call-lang-tab');
 						if (l === 'shell' || l === 'python') setCallLangTab(l);
 					});
+				});
+
+				apiStyleTabs.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const s = btn.getAttribute('data-model-call-api-tab');
+						if (s === 'openai_compat' || s === 'ollama_native') setCallApiStyleTab(s);
+					});
+				});
+
+				applyCallExampleVisibility();
+				requestAnimationFrame(() => {
+					const fromPanel = readEngineFromServePanel();
+					if (fromPanel) onInferenceEngineChanged(fromPanel);
+					else applyCallExampleVisibility();
 				});
 
 				function renderAllCallCommands() {
@@ -344,36 +473,9 @@ function isFirstExampleOfLang(i: number): boolean {
 				}
 
 				renderAllCallCommands();
-				hostInput?.addEventListener('input', () => renderAllCallCommands());
-
-				const toolbarCopy = document.getElementById('model-call-toolbar-copy');
-				const toolbarCopyLabel = toolbarCopy?.querySelector<HTMLElement>(
-					'[data-model-call-toolbar-copy-label]',
-				);
-				toolbarCopy?.addEventListener('click', () => {
-					const firstBlock = root.querySelector<HTMLElement>('.model-call-block:not(.hidden)');
-					const codeEl = firstBlock?.querySelector<HTMLElement>('.model-call-command');
-					const copyText = codeEl?.dataset.copyPlain?.trim() || '';
-					if (!copyText) return;
-					const engineLabel = firstBlock?.getAttribute('data-call-engine') || '';
-
-					void navigator.clipboard.writeText(copyText).then(() => {
-						trackCopyInferenceCommand({
-							source: 'model_page_client_call',
-							model_id: pageModelSlug,
-							module_id: '',
-							module_label: '',
-							inference_engine: engineLabel,
-						});
-					});
-
-					if (toolbarCopyLabel) {
-						const prev = toolbarCopyLabel.textContent || '';
-						toolbarCopyLabel.textContent = 'Copied';
-						setTimeout(() => {
-							toolbarCopyLabel.textContent = prev;
-						}, 1200);
-					}
+				hostInput?.addEventListener('input', () => {
+					resetModelCallCopyLabels();
+					renderAllCallCommands();
 				});
 
 				root.querySelectorAll<HTMLButtonElement>('.model-call-copy-btn').forEach((btn) => {
@@ -389,6 +491,16 @@ function isFirstExampleOfLang(i: number): boolean {
 						const block = btn.closest('.model-call-block');
 						const engineLabel = block?.getAttribute('data-call-engine') || '';
 
+						resetModelCallCopyLabels();
+						const label = btn.querySelector<HTMLElement>('[data-call-copy-label]');
+						if (label) {
+							label.textContent = 'Copied';
+							callCopyLabelTimer = setTimeout(() => {
+								label.textContent = 'Copy command';
+								callCopyLabelTimer = null;
+							}, 1200);
+						}
+
 						void navigator.clipboard.writeText(copyText).then(() => {
 							trackCopyInferenceCommand({
 								source: 'model_page_client_call',
@@ -398,15 +510,6 @@ function isFirstExampleOfLang(i: number): boolean {
 								inference_engine: engineLabel,
 							});
 						});
-
-						const label = btn.querySelector('[data-call-copy-label]');
-						if (label) {
-							const prev = label.textContent || '';
-							label.textContent = 'Copied';
-							setTimeout(() => {
-								label.textContent = prev;
-							}, 1200);
-						}
 					});
 				});
 			}

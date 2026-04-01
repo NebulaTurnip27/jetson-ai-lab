@@ -29,6 +29,8 @@ export function servingEntryToSupportedEngine(e: ServingEntryInput): SupportedEn
 		run_command_thor: e.run_command_thor,
 		install_command_orin: undefined,
 		install_command_thor: undefined,
+		modules_supported: e.modules_supported,
+		run_commands_by_module: e.run_commands_by_module,
 	};
 }
 

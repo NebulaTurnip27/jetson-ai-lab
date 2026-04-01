@@ -83,18 +83,29 @@ const inferenceNeedsHfToken = sortedEngines.some((e) =>
 
   {!data.hide_run_button && sortedEngines.length > 0 && (
     <div id="run-on-jetson" class="scroll-mt-20">
-      <InferenceCommandsPanel
-        modelSlug={entry.slug}
-        engines={sortedEngines}
-        needsHfToken={inferenceNeedsHfToken}
-        matrixModulesDisabled={data.matrix_modules_disabled}
-      />
-      <ModelCallSection
-        modelSlug={entry.slug}
-        engines={sortedEngines}
-        hfCheckpoint={data.hf_checkpoint}
-        clientCall={data.client_call}
-      />
+      <div class="bg-nvidia-gray-50 border-b border-nvidia-gray-200 relative overflow-hidden">
+        <div
+          class="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.12]"
+          style="background-image: url('/images/inference-call-band.png');"
+          aria-hidden="true"
+        />
+        <div class="relative z-[1]">
+          <InferenceCommandsPanel
+            modelSlug={entry.slug}
+            engines={sortedEngines}
+            needsHfToken={inferenceNeedsHfToken}
+            matrixModulesDisabled={data.matrix_modules_disabled}
+            sectionClass="!bg-transparent !border-b-0 !scroll-mt-0 pt-16 pb-8"
+          />
+          <ModelCallSection
+            modelSlug={entry.slug}
+            engines={sortedEngines}
+            hfCheckpoint={data.hf_checkpoint}
+            clientCall={data.client_call}
+            sectionClass="!bg-transparent !border-b-0 border-t border-nvidia-gray-200/80 scroll-mt-20 pt-10 pb-16"
+          />
+        </div>
+      </div>
       <ModelOneShotSection oneShot={data.one_shot_inference} modelSlug={entry.slug} />
       {data.benchmark && (
         <ModelBenchmarkSection benchmark={data.benchmark} engines={sortedEngines} />

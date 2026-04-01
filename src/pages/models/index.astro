@@ -1,13 +1,26 @@
 ---
 import { getCollection } from 'astro:content';
+import type { InferenceCategory } from '../../lib/engines';
 import Layout from '../../layouts/Layout.astro';
 import RunCommand from '../../components/RunCommand.astro';
 import ModelPerformanceCharts from '../../components/ModelPerformanceCharts.astro';
 import llmBenchmarks from '../../data/benchmarks.json';
+import { JETSON_MATRIX_MODULES, matrixRunnableModuleIdsForModel } from '../../lib/inferenceCommands';
+import { oneShotHasRunModalContent } from '../../lib/evalRunModal';
 import { getSupportedInferenceEngines, sortEnginesForUi } from '../../lib/modelFrontmatterAdapter';
+
+function modelTypeToInferenceCategory(type: string | undefined): InferenceCategory {
+  const t = type || 'Other';
+  if (t === 'Text' || t === 'Image' || t === 'Audio' || t === 'Multimodal') return t;
+  return 'Text';
+}
+
+/** Matrix tabs only — same ids as Serve / Run UI. */
+const moduleFilterOptions = JETSON_MATRIX_MODULES.filter((m) => m.showInMatrixUi !== false);
 
 const modelEntries = await getCollection('models');
 const collectionModels = modelEntries.map(entry => {
+  const engines = getSupportedInferenceEngines(entry.data);
   return {
     id: entry.slug,
     name: entry.data.title,
@@ -20,7 +33,12 @@ const collectionModels = modelEntries.map(entry => {
     order: entry.data.order ?? 999,
     status: entry.data.is_new ? 'new' : 'stable',
     highlighted: entry.data.is_new,
-    supported_inference_engines: sortEnginesForUi(getSupportedInferenceEngines(entry.data)),
+    supported_inference_engines: sortEnginesForUi(engines),
+    supported_matrix_modules: matrixRunnableModuleIdsForModel(
+      modelTypeToInferenceCategory(entry.data.type),
+      engines,
+      entry.data.matrix_modules_disabled
+    ),
     hf_checkpoint: entry.data.hf_checkpoint,
     hideRunButton: entry.data.hide_run_button ?? false,
     matrix_modules_disabled: entry.data.matrix_modules_disabled,
@@ -60,7 +78,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
   
   <!-- Featured Models -->
   {models.filter(m => m.highlighted).length > 0 && (
-    <section class="py-12 bg-nvidia-gray-50 border-b border-nvidia-gray-200">
+    <section class="py-12 bg-nvidia-gray-50 border-b border-nvidia-gray-200" id="featured-models-section">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h2 class="text-2xl font-bold text-nvidia-black">Featured Models</h2>
@@ -70,7 +88,11 @@ const families = Array.from(new Set(models.map(m => m.family)))
         <div class="relative -mx-4 px-4 sm:mx-0 sm:px-0">
           <div class="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide justify-center">
             {models.filter(m => m.highlighted).map(model => (
-              <div class="w-[280px] sm:w-[300px] md:w-[320px] snap-center flex-shrink-0">
+              <div
+                class="model-catalog-card w-[280px] sm:w-[300px] md:w-[320px] snap-center flex-shrink-0"
+                data-supported-modules={model.supported_matrix_modules.join(',')}
+                data-name={model.name.toLowerCase()}
+              >
                 <article class="group flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden">
                   <div class="p-6 flex flex-col h-full">
                     <div class="mb-4">
@@ -85,8 +107,9 @@ const families = Array.from(new Set(models.map(m => m.family)))
 
                     <div class="mt-auto pt-4 border-t border-gray-100">
                       <div class="flex items-center gap-2">
-                        {!model.hideRunButton && (
-                          <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} />
+                        {!model.hideRunButton &&
+                          (model.supported_inference_engines.length > 0 || oneShotHasRunModalContent(model.one_shot_inference)) && (
+                          <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} oneShotInference={model.one_shot_inference} />
                         )}
                         <a href={`/models/${model.id}`} class="px-3 py-1.5 rounded-md bg-nvidia-gray-100 text-nvidia-gray-900 hover:bg-nvidia-green hover:text-nvidia-black text-xs font-semibold transition-colors">
                           Details
@@ -112,7 +135,7 @@ const families = Array.from(new Set(models.map(m => m.family)))
           <p class="text-xl text-nvidia-gray-600">Compact directory, grouped by model family</p>
         </div>
         
-        <div class="w-full md:w-auto flex flex-col sm:flex-row gap-4">
+        <div class="w-full md:max-w-xl flex flex-col gap-4">
            <div class="relative">
              <input 
                type="text" 
@@ -124,6 +147,21 @@ const families = Array.from(new Set(models.map(m => m.family)))
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
              </svg>
            </div>
+           <fieldset class="border border-nvidia-gray-200 rounded-lg p-3 sm:p-4 bg-nvidia-gray-50/50">
+             <legend class="text-xs font-bold text-nvidia-gray-500 uppercase tracking-wider px-1">Jetson module</legend>
+             <p class="text-xs text-nvidia-gray-600 mb-3">Show models that run on <strong>any</strong> selected module (via at least one inference engine).</p>
+             <div class="flex flex-wrap gap-x-4 gap-y-2">
+               {moduleFilterOptions.map((mod) => (
+                 <label class="inline-flex items-center gap-2 text-sm text-nvidia-black cursor-pointer select-none">
+                   <input type="checkbox" value={mod.id} data-module-filter class="rounded border-nvidia-gray-300 text-nvidia-green focus:ring-nvidia-green" />
+                   <span>{mod.shortLabel}</span>
+                 </label>
+               ))}
+             </div>
+             <button type="button" id="module-filter-clear" class="mt-3 text-xs font-medium text-nvidia-green hover:underline">
+               Clear module filters
+             </button>
+           </fieldset>
         </div>
       </div>
 
@@ -135,8 +173,13 @@ const families = Array.from(new Set(models.map(m => m.family)))
             </div>
             <div class="p-3 space-y-2 flex-1">
               {models.filter(m => m.family === family).map(model => (
-                <div class="model-card p-3 rounded-lg border border-transparent hover:border-nvidia-green hover:bg-nvidia-gray-50 transition-all group" data-category={model.category} data-name={model.name.toLowerCase()}>
-                  <div class="flex items-center justify-between gap-3">
+                <div
+                  class="model-card p-3 rounded-lg border border-transparent hover:border-nvidia-green hover:bg-nvidia-gray-50 transition-all group"
+                  data-category={model.category}
+                  data-name={model.name.toLowerCase()}
+                  data-supported-modules={model.supported_matrix_modules.join(',')}
+                >
+                  <div class="flex w-full min-w-0 items-center justify-between gap-3">
                     <div class="flex items-center gap-2 min-w-0">
                       <span class="text-sm font-bold text-nvidia-black group-hover:text-nvidia-green transition-colors">{model.name}</span>
                       {model.status === 'new' && (
@@ -144,8 +187,9 @@ const families = Array.from(new Set(models.map(m => m.family)))
                       )}
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                      {!model.hideRunButton && (
-                        <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} />
+                      {!model.hideRunButton &&
+                        (model.supported_inference_engines.length > 0 || oneShotHasRunModalContent(model.one_shot_inference)) && (
+                        <RunCommand modelId={model.id} modelName={model.name} category={model.category} forceModal={model.category === 'Image'} supportedEngines={model.supported_inference_engines} hfCheckpoint={model.hf_checkpoint} matrixModulesDisabled={model.matrix_modules_disabled} oneShotInference={model.one_shot_inference} />
                       )}
                       <a href={`/models/${model.id}`} class="px-3 py-1.5 rounded-md bg-nvidia-gray-100 text-nvidia-gray-900 hover:bg-nvidia-green hover:text-nvidia-black text-xs font-semibold transition-colors">
                         Details
@@ -180,48 +224,106 @@ const families = Array.from(new Set(models.map(m => m.family)))
 </Layout>
 
 <script>
-  // Search Logic
-  document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('model-search') as HTMLInputElement;
-    const modelGroups = document.querySelectorAll('.model-family-group');
+  function initModelDirectoryFilters() {
+    const directory = document.getElementById('directory');
+    if (!directory) return;
+
+    const searchInput = document.getElementById('model-search') as HTMLInputElement | null;
     const noResults = document.getElementById('no-results');
+    const clearModuleBtn = document.getElementById('module-filter-clear');
+    const featuredSection = document.getElementById('featured-models-section');
 
     let currentSearch = '';
 
+    function selectedModuleIds(): Set<string> {
+      const s = new Set<string>();
+      directory.querySelectorAll<HTMLInputElement>('[data-module-filter]').forEach((cb) => {
+        if (cb.checked && cb.value) s.add(cb.value);
+      });
+      return s;
+    }
+
+    function cardMatchesModuleFilter(card: Element): boolean {
+      const sel = selectedModuleIds();
+      if (sel.size === 0) return true;
+      const raw = card.getAttribute('data-supported-modules') || '';
+      const ids = new Set(
+        raw
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      );
+      for (const id of sel) {
+        if (ids.has(id)) return true;
+      }
+      return false;
+    }
+
     function filterModels() {
+      const modelGroups = document.querySelectorAll('.model-family-group');
       let hasVisibleModels = false;
 
-      modelGroups.forEach(group => {
+      modelGroups.forEach((group) => {
         const cards = group.querySelectorAll('.model-card');
         let visibleCardsInGroup = 0;
 
-        cards.forEach(card => {
-          const name = card.getAttribute('data-name') || '';
-          const matchesSearch = name.includes(currentSearch);
+        cards.forEach((card) => {
+          const el = card as HTMLElement;
+          const name = el.getAttribute('data-name') || '';
+          const matchesSearch = !currentSearch || name.includes(currentSearch);
+          const matchesModules = cardMatchesModuleFilter(card);
 
-          if (matchesSearch) {
-            (card as HTMLElement).style.display = 'flex';
+          if (matchesSearch && matchesModules) {
+            el.style.display = '';
             visibleCardsInGroup++;
             hasVisibleModels = true;
           } else {
-            (card as HTMLElement).style.display = 'none';
+            el.style.display = 'none';
           }
         });
 
-        // Show/Hide entire group if it has no visible cards
         (group as HTMLElement).style.display = visibleCardsInGroup > 0 ? 'flex' : 'none';
       });
 
-      if (noResults) {
-        noResults.classList.toggle('hidden', hasVisibleModels);
+      if (featuredSection) {
+        let anyFeatured = false;
+        featuredSection.querySelectorAll<HTMLElement>('.model-catalog-card').forEach((wrap) => {
+          const name = wrap.getAttribute('data-name') || '';
+          const matchesSearch = !currentSearch || name.includes(currentSearch);
+          const matchesModules = cardMatchesModuleFilter(wrap);
+          const show = matchesSearch && matchesModules;
+          wrap.style.display = show ? '' : 'none';
+          if (show) anyFeatured = true;
+        });
+        featuredSection.classList.toggle('hidden', !anyFeatured);
       }
+
+      noResults?.classList.toggle('hidden', hasVisibleModels);
     }
 
-    searchInput?.addEventListener('input', (e) => {
-      currentSearch = (e.target as HTMLInputElement).value.toLowerCase();
-      filterModels();
-    });
-  });
+    if (directory.dataset.modelsFilterListeners !== '1') {
+      directory.dataset.modelsFilterListeners = '1';
+      searchInput?.addEventListener('input', (e) => {
+        currentSearch = (e.target as HTMLInputElement).value.toLowerCase().trim();
+        filterModels();
+      });
+      directory.addEventListener('change', (e) => {
+        const t = e.target as HTMLElement | null;
+        if (t?.matches?.('[data-module-filter]')) filterModels();
+      });
+      clearModuleBtn?.addEventListener('click', () => {
+        directory.querySelectorAll<HTMLInputElement>('[data-module-filter]').forEach((cb) => {
+          cb.checked = false;
+        });
+        filterModels();
+      });
+    }
+
+    filterModels();
+  }
+
+  document.addEventListener('DOMContentLoaded', initModelDirectoryFilters);
+  document.addEventListener('astro:page-load', initModelDirectoryFilters);
 </script>
 
 <style>
