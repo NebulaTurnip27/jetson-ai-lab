@@ -156,7 +156,7 @@ export const JETSON_MATRIX_MODULES: readonly JetsonModuleSpec[] = [
 	},
 ] as const;
 
-/** Ids that appear as matrix tabs when the platform has commands (subset of {@link JETSON_MATRIX_MODULES}). */
+/** Ids that appear as matrix tabs (subset of {@link JETSON_MATRIX_MODULES} with {@link JetsonModuleSpec.showInMatrixUi} !== false). */
 export const JETSON_MATRIX_TAB_MODULE_IDS: readonly string[] = JETSON_MATRIX_MODULES.filter(
 	(m) => m.showInMatrixUi !== false
 ).map((m) => m.id);
@@ -252,18 +252,15 @@ export function serveCommandForMatrixCell(
 	return combineInstallRunForModule(e, module);
 }
 
-/** Matrix tabs only: Orin vs Thor availability, and {@link JetsonModuleSpec.showInMatrixUi} !== false. */
-export function visibleModulesForEngines(engines: SupportedEngineEntry[]): JetsonModuleSpec[] {
-	let hasOrin = false;
-	let hasThor = false;
-	for (const e of engines) {
-		if (engineHasPlatformContent(e, 'orin')) hasOrin = true;
-		if (engineHasPlatformContent(e, 'thor')) hasThor = true;
-	}
-	return JETSON_MATRIX_MODULES.filter(
-		(m) =>
-			m.showInMatrixUi !== false && (m.platformKey === 'thor' ? hasThor : hasOrin)
-	);
+/**
+ * Matrix tabs: the full standard set ({@link JETSON_MATRIX_MODULES} with {@link JetsonModuleSpec.showInMatrixUi} !== false).
+ * Orin tabs stay visible when the model is Thor-only (and vice versa); unsupported combinations are disabled in UI
+ * via `modules_supported`, `serveCommandForMatrixCell`, and per-engine rules in Layout / ModelServeSection.
+ *
+ * @param _engines Kept for call-site stability; tab list no longer depends on which platforms have commands.
+ */
+export function visibleModulesForEngines(_engines: SupportedEngineEntry[]): JetsonModuleSpec[] {
+	return JETSON_MATRIX_MODULES.filter((m) => m.showInMatrixUi !== false);
 }
 
 /**

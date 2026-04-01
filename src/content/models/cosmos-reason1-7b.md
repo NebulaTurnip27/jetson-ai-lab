@@ -23,6 +23,8 @@ supported_inference_engines:
       - thor_t5000
       - thor_t4000
       - orin_agx_64
+      - orin_nx_16
+      - orin_nano_8
     serve_command_orin: |-
       sudo docker run -it --rm --pull always \
         --runtime=nvidia --network host \

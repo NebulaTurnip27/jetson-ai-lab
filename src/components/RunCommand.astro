@@ -127,7 +127,11 @@ const needsHfToken =
 		return cmds.some((c) => c && c.includes('HF_TOKEN'));
 	}) ?? false;
 
-const engineUi = engines.map((e) => ({ id: e.id, label: e.label }));
+const engineUi = engines.map((e) => {
+	const entry = supportedEngines?.length ? matchSupportedEngine(supportedEngines, e.id) : undefined;
+	const type = entry?.type?.trim() ?? '';
+	return { id: e.id, label: e.label, type };
+});
 
 const commandMatrix = buildCommandMatrix(category, supportedEngines);
 const visibleModules = supportedEngines?.length
@@ -440,7 +444,10 @@ const engineImages = engineImagesOrin;
                                                 'border-b-transparent lg:border-l-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
                                             ]}
                                         >
-                                            <span class="font-semibold text-sm">{e.label}</span>
+                                            <span class="font-semibold text-sm block">{e.label}</span>
+                                            {e.type && (
+                                                <span class="text-xs text-nvidia-gray-500 mt-0.5 block font-normal">{e.type}</span>
+                                            )}
                                         </button>
                                     ))}
                                 </div>
@@ -616,7 +623,9 @@ const engineImages = engineImagesOrin;
                                         <div class="relative">
                                             <select data-engine class="w-full appearance-none bg-nvidia-gray-50 border border-nvidia-gray-200 text-nvidia-black text-sm rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none transition-all">
                                                 {engineUi.map(e => (
-                                                    <option value={e.id} selected={e.id === defaultEngineId}>{e.label}</option>
+                                                    <option value={e.id} selected={e.id === defaultEngineId}>
+                                                        {e.type ? `${e.label} (${e.type})` : e.label}
+                                                    </option>
                                                 ))}
                                             </select>
                                             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-nvidia-gray-500">
