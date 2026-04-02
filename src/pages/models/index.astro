@@ -29,7 +29,7 @@ const collectionModels = modelEntries.map(entry => {
 const models = collectionModels.sort((a, b) => a.order - b.order);
 
 const familyOrder: Record<string, number> = {
-  'Google Gemma3': 0,
+  'Google Gemma4': 0,
   'NVIDIA Nemotron': 1,
   'NVIDIA Cosmos Reason': 2,
   'Alibaba Qwen3.5': 3,
@@ -37,6 +37,7 @@ const familyOrder: Record<string, number> = {
   'Alibaba Qwen3': 5,
   'Mistral AI Ministral 3': 6,
   'Meta Llama 3': 7,
+  'Google Gemma3': 8,
 };
 const families = Array.from(new Set(models.map(m => m.family)))
   .sort((a, b) => (familyOrder[a] ?? 99) - (familyOrder[b] ?? 99));
