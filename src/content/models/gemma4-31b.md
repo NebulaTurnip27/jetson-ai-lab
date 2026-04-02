@@ -4,7 +4,7 @@ model_id: "gemma4-31b"
 short_description: "Google's Gemma 4 31B variant with Q4_K_M GGUF support on Jetson through llama.cpp"
 family: "Google Gemma4"
 icon: "💎"
-is_new: true
+is_new: false
 order: 4
 type: "Text"
 memory_requirements: "32GB RAM"

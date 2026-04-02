@@ -1,7 +1,7 @@
 ---
 title: "Gemma 4 26B-A4B"
 model_id: "gemma4-26b-a4b"
-short_description: "Google's Gemma 4 26B-A4B variant with Q4_K_M GGUF support on Jetson through llama.cpp"
+short_description: "Google's 26B MoE frontier Gemma 4 model for fast high-end reasoning and multimodal workflows"
 family: "Google Gemma4"
 icon: "💎"
 is_new: true

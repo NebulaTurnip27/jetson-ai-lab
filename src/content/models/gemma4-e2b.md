@@ -1,7 +1,7 @@
 ---
 title: "Gemma 4 E2B"
 model_id: "gemma4-e2b"
-short_description: "Google's compact Gemma 4 E2B variant, served on Jetson with llama.cpp in GGUF format"
+short_description: "Google's compact frontier Gemma 4 model for efficient multimodal and agentic workloads"
 family: "Google Gemma4"
 icon: "💎"
 is_new: true

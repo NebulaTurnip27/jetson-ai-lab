@@ -4,7 +4,7 @@ model_id: "nemotron3-nano-4b"
 short_description: "NVIDIA's compact 4B Nano model with day-0 llama.cpp support on Jetson Orin and Thor"
 family: "NVIDIA Nemotron"
 icon: "⚡"
-is_new: true
+is_new: false
 order: 0
 type: "Text"
 memory_requirements: "4GB RAM"
