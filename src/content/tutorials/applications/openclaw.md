@@ -1,6 +1,6 @@
 ---
-title: "OpenClaw on Jetson Orin"
-description: "Run OpenClaw locally across the Jetson Orin family: a lightweight Ollama path for Orin Nano, and a vLLM path for AGX Orin and AGX Thor."
+title: "OpenClaw on Jetson"
+description: "Run a fully local AI personal assistant on Jetson with OpenClaw and WhatsApp, no cloud APIs needed."
 category: "Applications"
 section: "AI Agents"
 order: 2
@@ -39,7 +39,7 @@ This path is the original Orin Nano setup: **Ollama + Qwen 3.5 2B + OpenClaw**, 
 If you just want the fast path, here it is. One command, it installs Ollama, pulls the model, installs OpenClaw, writes the config, starts the gateway, and sends a message to your agent.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/src/content/tutorials/applications/setup-openclaw-orin-nano.py | python3
+curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/public/code-samples/openclaw-orin-nano/setup-openclaw-orin-nano.py | python3
 ```
 
 If that worked, great, you're done 🙂
@@ -421,13 +421,13 @@ openclaw channels status --probe
 By default the script runs a short demo: 5 curated prompts back to back with no pause. Results are logged to `~/endurance_test.md`.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/src/content/tutorials/applications/endurance-test.py | python3
+curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/public/code-samples/openclaw-orin-nano/endurance-test.py | python3
 ```
 
 That finishes quickly for a promo video. For the full 43-prompt endurance run, use `--full`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/src/content/tutorials/applications/endurance-test.py -o /tmp/endurance-test.py
+curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/public/code-samples/openclaw-orin-nano/endurance-test.py -o /tmp/endurance-test.py
 python3 /tmp/endurance-test.py --full
 ```
 
@@ -451,13 +451,13 @@ openclaw agents add sage --model ollama/qwen3.5:2b --non-interactive \
 Then run the debate script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/src/content/tutorials/applications/multi-agent-debate.py | python3
+curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/public/code-samples/openclaw-orin-nano/multi-agent-debate.py | python3
 ```
 
 For a short promo demo:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/src/content/tutorials/applications/multi-agent-debate.py -o /tmp/debate.py
+curl -fsSL https://raw.githubusercontent.com/NVIDIA-AI-IOT/jetson-ai-lab/main/public/code-samples/openclaw-orin-nano/multi-agent-debate.py -o /tmp/debate.py
 python3 /tmp/debate.py --demo
 ```
 
