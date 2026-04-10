@@ -173,6 +173,30 @@ const { Content, headings } = await tutorial.render();
 		scroll-behavior: smooth;
 		scroll-padding-top: 100px;
 	}
+
+	/* Mermaid (rehype-mermaid): keep diagrams readable in prose */
+	:global(.prose .mermaid-diagram) {
+		overflow-x: auto;
+		margin: 1.5rem 0;
+		padding: 1rem;
+		border-radius: 0.75rem;
+		border: 1px solid #e2e8f0;
+		background: #ffffff;
+	}
+	:global(.prose .mermaid-diagram img[id^="mermaid"]),
+	:global(.prose .mermaid-diagram svg[id^="mermaid"]) {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		margin: 0 auto;
+	}
+	:global(.prose > img[id^="mermaid"]),
+	:global(.prose > svg[id^="mermaid"]) {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		margin: 1.5rem auto;
+	}
 </style>
 
 <style is:global>

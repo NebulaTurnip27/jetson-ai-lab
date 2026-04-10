@@ -14,7 +14,8 @@ export default defineConfig({
       wrap: true,
       excludeLangs: ['mermaid'], // Disable syntax highlighting for Mermaid
     },
-    rehypePlugins: [rehypeMermaid],
+    // img-svg scales reliably inside Tailwind Typography; inline-svg can clip or overflow wide LR flowcharts
+    rehypePlugins: [[rehypeMermaid, { strategy: 'img-svg' }]],
   },
   redirects: {
     // Jetson Setup Guide
