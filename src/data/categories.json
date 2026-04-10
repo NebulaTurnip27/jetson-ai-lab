@@ -34,32 +34,39 @@
     "order": 5,
     "description": "End-to-end AI applications and microservices"
   },
+  "Model Optimization": {
+    "title": "Model Optimization",
+    "icon": "⚡",
+    "colorClass": "bg-cyan-100 text-cyan-600",
+    "order": 6,
+    "description": "Fine-tuning, quantization, and optimization for edge deployment"
+  },
   "Workshops": {
     "title": "Workshops & Hackathons",
     "icon": "🎓",
     "colorClass": "bg-nvidia-green/10 text-nvidia-green",
-    "order": 6,
+    "order": 7,
     "description": "Hands-on workshops and hackathon guides"
   },
   "Text": {
     "title": "Text Generation (LLM)",
     "icon": "💬",
     "colorClass": "bg-blue-100 text-blue-600",
-    "order": 7,
+    "order": 8,
     "description": "Large language models and text generation"
   },
   "Image": {
     "title": "Image Generation",
     "icon": "🎨",
     "colorClass": "bg-pink-100 text-pink-600",
-    "order": 8,
+    "order": 9,
     "description": "Image generation and diffusion models"
   },
   "Audio": {
     "title": "Audio & Speech",
     "icon": "🎤",
     "colorClass": "bg-orange-100 text-orange-600",
-    "order": 9,
+    "order": 10,
     "description": "Speech recognition and audio processing"
   }
 }

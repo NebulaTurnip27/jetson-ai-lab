@@ -5,7 +5,7 @@ const tutorials = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string(),
-    category: z.enum(['Text', 'Image', 'Audio', 'Applications', 'VLM', 'VLA', 'Fundamentals', 'Setup', 'Workshops']),
+    category: z.enum(['Text', 'Image', 'Audio', 'Applications', 'VLM', 'VLA', 'Fundamentals', 'Setup', 'Workshops', 'Model Optimization']),
     section: z.string().optional(), // For sub-grouping within categories (e.g., "Inference Engines", "Getting Started")
     order: z.number().optional(), // For custom ordering within sections
     tags: z.array(z.string()),
