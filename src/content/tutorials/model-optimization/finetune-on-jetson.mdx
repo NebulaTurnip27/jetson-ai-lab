@@ -43,12 +43,14 @@ Fine-tuning lets you customize a pre-trained LLM on your own data so it becomes 
 </tr>
 </thead>
 <tbody>
-<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">Full SFT</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 4B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~42 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~5 min</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Maximum quality</td></tr>
-<tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">LoRA</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 9B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~50 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~3.5 min</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Good balance of quality and efficiency</td></tr>
-<tr style="background: #f8fafc;"><td style="padding: 12px 16px; font-weight: 500;">QLoRA (4-bit)</td><td style="padding: 12px 16px;">Qwen3.5 27B</td><td style="padding: 12px 16px;">~28 GB</td><td style="padding: 12px 16px;">~10 min</td><td style="padding: 12px 16px;">Largest models with least memory</td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">Full SFT</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 4B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~42 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~5 min<br/><span style="font-weight: 500; font-size: 0.85em; color: #475569;">(1 epoch, 500 samples)</span></td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Maximum quality</td></tr>
+<tr style="background: #ffffff;"><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500;">LoRA</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Qwen3.5 9B</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~50 GB</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">~3.5 min<br/><span style="font-weight: 500; font-size: 0.85em; color: #475569;">(1 epoch, 512 samples)</span></td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">Good balance of quality and efficiency</td></tr>
+<tr style="background: #f8fafc;"><td style="padding: 12px 16px; font-weight: 500;">QLoRA (4-bit)</td><td style="padding: 12px 16px;">Qwen3.5 27B</td><td style="padding: 12px 16px;">~28 GB</td><td style="padding: 12px 16px;">~10 min<br/><span style="font-weight: 500; font-size: 0.85em; color: #475569;">(1 epoch, 512 samples)</span></td><td style="padding: 12px 16px;">Largest models with least memory</td></tr>
 </tbody>
 </table>
 </div>
+
+<p style="font-size: 0.9rem; color: #64748b; margin: -0.25rem 0 1.25rem;">These times are rough guides for the defaults in each section below; larger <code>--dataset_size</code> or more <code>--num_epochs</code> will take proportionally longer.</p>
 
 <div class="admonition tip">
 <p class="admonition-title">💡 How to choose</p>
