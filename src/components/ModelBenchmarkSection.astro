@@ -1,0 +1,93 @@
+---
+import type { SupportedEngineEntry } from '../lib/inferenceCommands';
+
+interface BenchRow {
+	concurrency1: number;
+	concurrency8: number;
+	ttftMs?: number;
+}
+
+interface Props {
+	benchmark: Record<string, BenchRow | undefined>;
+	engines: SupportedEngineEntry[];
+}
+
+const { benchmark, engines } = Astro.props;
+
+const hasVllm = engines.some(
+	(e) => e.engine.toLowerCase().replace(/[.\-_]/g, '') === 'vllm',
+);
+
+const orin = benchmark.orin;
+const thor = benchmark.thor;
+const hasAny = !!(orin || thor);
+---
+
+{
+	hasAny && hasVllm && (
+		<section
+			id="model-benchmark"
+			class="py-16 bg-white border-b border-nvidia-gray-200 scroll-mt-20"
+			aria-labelledby="model-benchmark-heading"
+		>
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<h2 id="model-benchmark-heading" class="text-3xl font-bold text-nvidia-black mb-2">
+					Benchmark
+				</h2>
+				<p class="text-sm text-nvidia-gray-600 max-w-3xl mb-8">
+					Throughput numbers below were measured with vLLM on Jetson under the lab&apos;s test setup.
+					Your results will vary with image, clocks, and workload.
+				</p>
+
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+					{orin && (
+						<div class="rounded-xl border border-nvidia-gray-200 bg-nvidia-gray-50/80 p-6">
+							<h3 class="text-sm font-semibold text-nvidia-gray-500 uppercase tracking-wide mb-4">
+								Jetson Orin (vLLM)
+							</h3>
+							<div class="grid grid-cols-2 gap-4">
+								<div class="bg-white rounded-lg p-4 border border-nvidia-gray-100">
+									<div class="text-3xl font-bold text-nvidia-green text-center">{orin.concurrency1}</div>
+									<div class="text-sm text-nvidia-gray-600 mt-2 text-center">tokens/sec (concurrency 1)</div>
+								</div>
+								<div class="bg-white rounded-lg p-4 border border-nvidia-gray-100">
+									<div class="text-3xl font-bold text-nvidia-green text-center">{orin.concurrency8}</div>
+									<div class="text-sm text-nvidia-gray-600 mt-2 text-center">tokens/sec (concurrency 8)</div>
+								</div>
+							</div>
+							{orin.ttftMs != null && orin.ttftMs > 0 && (
+								<div class="mt-4 bg-white rounded-lg p-4 border border-nvidia-gray-100 text-center">
+									<div class="text-2xl font-bold text-nvidia-black">{orin.ttftMs} ms</div>
+									<div class="text-sm text-nvidia-gray-600 mt-1">Time to first token</div>
+								</div>
+							)}
+						</div>
+					)}
+					{thor && (
+						<div class="rounded-xl border border-nvidia-gray-200 bg-nvidia-gray-50/80 p-6">
+							<h3 class="text-sm font-semibold text-nvidia-gray-500 uppercase tracking-wide mb-4">
+								Jetson Thor (vLLM)
+							</h3>
+							<div class="grid grid-cols-2 gap-4">
+								<div class="bg-white rounded-lg p-4 border border-nvidia-gray-100">
+									<div class="text-3xl font-bold text-nvidia-green text-center">{thor.concurrency1}</div>
+									<div class="text-sm text-nvidia-gray-600 mt-2 text-center">tokens/sec (concurrency 1)</div>
+								</div>
+								<div class="bg-white rounded-lg p-4 border border-nvidia-gray-100">
+									<div class="text-3xl font-bold text-nvidia-green text-center">{thor.concurrency8}</div>
+									<div class="text-sm text-nvidia-gray-600 mt-2 text-center">tokens/sec (concurrency 8)</div>
+								</div>
+							</div>
+							{thor.ttftMs != null && thor.ttftMs > 0 && (
+								<div class="mt-4 bg-white rounded-lg p-4 border border-nvidia-gray-100 text-center">
+									<div class="text-2xl font-bold text-nvidia-black">{thor.ttftMs} ms</div>
+									<div class="text-sm text-nvidia-gray-600 mt-1">Time to first token</div>
+								</div>
+							)}
+						</div>
+					)}
+				</div>
+			</div>
+		</section>
+	)
+}

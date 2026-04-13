@@ -1,0 +1,513 @@
+---
+import type { SupportedEngineEntry } from '../lib/inferenceCommands';
+import {
+	buildClientCallExamples,
+	normalizeInferenceEngineKey,
+	type ClientCallExample,
+} from '../lib/modelClientExamples';
+
+interface ClientCallFrontmatter {
+	shell?: string;
+	python?: string;
+	intro?: string;
+}
+
+interface Props {
+	engines: SupportedEngineEntry[];
+	modelSlug: string;
+	hfCheckpoint?: string;
+	clientCall?: ClientCallFrontmatter | null;
+	/** Merged onto the root section (e.g. stack with serve section under one background) */
+	sectionClass?: string;
+}
+
+const { engines, modelSlug, hfCheckpoint, clientCall, sectionClass = '' } = Astro.props;
+
+const fromFrontmatter: ClientCallExample[] = [];
+const ccIntro = clientCall?.intro?.trim();
+if (clientCall?.shell?.trim()) {
+	fromFrontmatter.push({
+		engineLabel: 'Shell',
+		lang: 'shell',
+		intro:
+			'From model front matter: <code class="text-xs bg-nvidia-gray-100 px-1 rounded">client_call.shell</code>.',
+		command: clientCall.shell.trim(),
+	});
+}
+if (clientCall?.python?.trim()) {
+	fromFrontmatter.push({
+		engineLabel: 'Python',
+		lang: 'python',
+		intro:
+			'From model front matter: <code class="text-xs bg-nvidia-gray-100 px-1 rounded">client_call.python</code>.',
+		command: clientCall.python.trim(),
+	});
+}
+
+const generated = buildClientCallExamples(engines, {
+	modelId: modelSlug,
+	hfCheckpoint,
+});
+
+const examples: ClientCallExample[] = [...fromFrontmatter, ...generated];
+
+const hasExamples = examples.length > 0;
+const anyJetsonHostPlaceholder = hasExamples && examples.some((ex) => ex.command.includes('JETSON_HOST'));
+
+function exampleLang(ex: ClientCallExample): 'shell' | 'python' {
+	return ex.lang === 'python' ? 'python' : 'shell';
+}
+const hasShellExamples = hasExamples && examples.some((ex) => exampleLang(ex) === 'shell');
+const hasPythonExamples = hasExamples && examples.some((ex) => exampleLang(ex) === 'python');
+const showCallLangTabs = hasShellExamples && hasPythonExamples;
+
+const showCallApiStyleTabs =
+	hasExamples &&
+	examples.some(
+		(ex) =>
+			normalizeInferenceEngineKey(ex.callEngineKey || '') === 'ollama' &&
+			ex.callApiStyle === 'openai_compat',
+	) &&
+	examples.some(
+		(ex) =>
+			normalizeInferenceEngineKey(ex.callEngineKey || '') === 'ollama' &&
+			ex.callApiStyle === 'ollama_native',
+	);
+---
+
+<div
+	id="call-model"
+	class:list={[
+		'py-16 bg-white border-b border-nvidia-gray-200 scroll-mt-20',
+		sectionClass,
+	]}
+	role="region"
+	aria-labelledby="call-model-heading"
+	data-model-slug={modelSlug}
+	data-default-inference-engine={engines[0]?.engine ?? ''}
+>
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<h3 id="call-model-heading" class="text-2xl font-bold text-nvidia-black mb-2">
+			Call the model over Web API
+		</h3>
+		<p class="text-sm text-nvidia-gray-600 mb-8">
+			Copy the command below and paste into your terminal to make a Web API request to the model you just served.
+		</p>
+
+		{ccIntro && fromFrontmatter.length > 0 && (
+			<p class="text-sm text-nvidia-gray-700 mb-6" set:html={ccIntro} />
+		)}
+
+		{
+			hasExamples ? (
+				<div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+					{
+						anyJetsonHostPlaceholder && (
+							<aside class="w-full lg:w-[min(100%,18rem)] xl:w-72 shrink-0 rounded-xl border border-nvidia-gray-200 bg-nvidia-gray-50/90 px-3 py-4 lg:px-4">
+								<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+									<h3 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider leading-tight">
+										Parameters
+									</h3>
+									<button
+										type="button"
+										id="model-call-advanced-toggle"
+										class="text-[11px] font-medium text-nvidia-green hover:text-nvidia-green/80 flex items-center gap-0.5 shrink-0"
+										aria-expanded="true"
+										aria-controls="model-call-advanced-body"
+									>
+										<span data-model-call-adv-toggle-text>Hide</span>
+										<svg
+											data-model-call-adv-toggle-icon
+											class="w-3 h-3 transition-transform duration-200 shrink-0 rotate-180"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M19 9l-7 7-7-7"
+											/>
+										</svg>
+									</button>
+								</div>
+								<div id="model-call-advanced-body" class="space-y-3 pt-1">
+									<div>
+										<label
+											for="model-call-jetson-host"
+											class="block text-xs font-medium text-nvidia-gray-700 mb-1"
+										>
+											Jetson host
+										</label>
+										<input
+											id="model-call-jetson-host"
+											type="text"
+											value=""
+											placeholder="e.g. localhost or 192.168.1.10"
+											autocomplete="off"
+											class="w-full bg-white border border-nvidia-gray-200 text-nvidia-black text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none font-mono"
+										/>
+										<p class="text-[9px] text-nvidia-gray-500 mt-1.5 leading-snug">
+											Substitutes{' '}
+											<code class="text-[9px] bg-white border border-nvidia-gray-200 px-0.5 rounded">
+												{'${JETSON_HOST}'}
+											</code>{' '}
+											in the command. Leave empty to keep that shell variable in the copied text.
+										</p>
+									</div>
+								</div>
+							</aside>
+						)
+					}
+					<div class="min-w-0 flex-1 model-call-examples w-full">
+						{
+							(showCallLangTabs || showCallApiStyleTabs) && (
+								<div class="flex flex-wrap items-center gap-3 mb-4 min-w-0">
+									<div class="flex flex-wrap items-center gap-2 min-w-0">
+									{showCallLangTabs && (
+									<div
+										class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200 shrink-0"
+										role="tablist"
+										aria-label="Example format"
+									>
+										<button
+											type="button"
+											role="tab"
+											id="model-call-tab-shell"
+											aria-selected="true"
+											aria-controls="model-call-example-panels"
+											data-model-call-lang-tab="shell"
+											class="model-call-lang-tab px-4 py-1.5 rounded-md text-xs font-bold bg-nvidia-black text-nvidia-white shadow-sm transition-colors"
+										>
+											Shell
+										</button>
+										<button
+											type="button"
+											role="tab"
+											id="model-call-tab-python"
+											aria-selected="false"
+											aria-controls="model-call-example-panels"
+											data-model-call-lang-tab="python"
+											class="model-call-lang-tab px-4 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-nvidia-black transition-colors"
+										>
+											Python
+										</button>
+									</div>
+									)}
+									{showCallApiStyleTabs && (
+										<div
+											data-model-call-api-style-tabs
+											class="flex bg-white rounded-lg p-1 shadow-sm border border-nvidia-gray-200 shrink-0 hidden"
+											role="tablist"
+											aria-label="Ollama API style"
+										>
+											<button
+												type="button"
+												role="tab"
+												id="model-call-tab-api-openai"
+												aria-selected="true"
+												aria-controls="model-call-example-panels"
+												data-model-call-api-tab="openai_compat"
+												class="model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold bg-nvidia-black text-nvidia-white shadow-sm transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left"
+												title="OpenAI-compatible endpoints (/v1/…)"
+											>
+												OpenAI-compatible API
+											</button>
+											<button
+												type="button"
+												role="tab"
+												id="model-call-tab-api-ollama"
+												aria-selected="false"
+												aria-controls="model-call-example-panels"
+												data-model-call-api-tab="ollama_native"
+												class="model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-nvidia-black transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left"
+												title="Ollama native HTTP (/api/generate)"
+											>
+												Ollama API
+											</button>
+										</div>
+									)}
+									</div>
+								</div>
+							)
+						}
+						<div id="model-call-example-panels" class="space-y-10">
+							{examples.map((ex, i) => {
+								const lang = exampleLang(ex);
+								const hideForTab = showCallLangTabs && lang === 'python';
+								return (
+							<div
+								class:list={['model-call-block', hideForTab && 'hidden']}
+								data-call-engine={ex.engineLabel}
+								data-call-example-lang={lang}
+								data-call-engine-key={ex.callEngineKey ?? ''}
+								data-call-api-style={ex.callApiStyle ?? ''}
+							>
+								{
+									ex.showEngineHeading !== false && (
+										<h3 class="text-lg font-semibold text-nvidia-black mb-2">{ex.engineLabel}</h3>
+									)
+								}
+								{ex.intro.trim() && <p class="text-sm text-nvidia-gray-600 mb-4" set:html={ex.intro} />}
+								<div class="relative rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] overflow-hidden">
+									<button
+										type="button"
+										class="model-call-copy-btn absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold"
+										data-call-copy={i}
+									>
+										<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+											/>
+										</svg>
+										<span data-call-copy-label>Copy command</span>
+									</button>
+									<pre
+										class="text-sm font-mono text-slate-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 m-0"
+									>
+										<code
+											class="model-call-command block w-full max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+											data-call-index={i}
+											data-call-lang={ex.lang ?? 'shell'}
+										>
+											{ex.command}
+										</code>
+									</pre>
+								</div>
+							</div>
+								);
+							})}
+						</div>
+					</div>
+				</div>
+			) : (
+				<p class="text-sm text-nvidia-gray-500 italic">
+					A sample HTTP client command is not generated for this model&apos;s engine yet. Use your client
+					(Open WebUI, curl, etc.) against the server you started above.
+				</p>
+			)
+		}
+	</div>
+</section>
+
+{
+		hasExamples && (
+		<script>
+			import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
+			import { trackCopyInferenceCommand } from '../lib/analyticsInference';
+			import { normalizeInferenceEngineKey } from '../lib/modelClientExamples';
+
+			function initModelCallSection() {
+				const root = document.getElementById('call-model');
+				if (!root || root.dataset.callInit === '1') return;
+				root.dataset.callInit = '1';
+				const pageModelSlug = root.dataset.modelSlug || 'unknown';
+				const hostInput = document.getElementById('model-call-jetson-host') as HTMLInputElement | null;
+				const showCallLangTabs = root.querySelectorAll('[data-model-call-lang-tab]').length > 0;
+				const apiStyleTabsWrap = root.querySelector<HTMLElement>('[data-model-call-api-style-tabs]');
+				const apiStyleTabs = root.querySelectorAll<HTMLButtonElement>('[data-model-call-api-tab]');
+				let callLang: 'shell' | 'python' = 'shell';
+				let callOllamaApiStyle: 'openai_compat' | 'ollama_native' = 'openai_compat';
+				let selectedEngineKey = normalizeInferenceEngineKey(root.dataset.defaultInferenceEngine || '');
+				let callCopyLabelTimer: ReturnType<typeof setTimeout> | null = null;
+
+				function resetModelCallCopyLabels() {
+					if (callCopyLabelTimer != null) {
+						clearTimeout(callCopyLabelTimer);
+						callCopyLabelTimer = null;
+					}
+					root.querySelectorAll<HTMLElement>('[data-call-copy-label]').forEach((el) => {
+						el.textContent = 'Copy command';
+					});
+				}
+
+				const callAdvToggle = document.getElementById('model-call-advanced-toggle');
+				const callAdvBody = document.getElementById('model-call-advanced-body');
+				const callAdvToggleText = callAdvToggle?.querySelector('[data-model-call-adv-toggle-text]');
+				const callAdvToggleIcon = callAdvToggle?.querySelector('[data-model-call-adv-toggle-icon]');
+				callAdvToggle?.addEventListener('click', () => {
+					if (!callAdvBody || !callAdvToggle) return;
+					callAdvBody.classList.toggle('hidden');
+					const open = !callAdvBody.classList.contains('hidden');
+					callAdvToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+					if (callAdvToggleText) callAdvToggleText.textContent = open ? 'Hide' : 'Show';
+					callAdvToggleIcon?.classList.toggle('rotate-180', open);
+				});
+
+				const langTabs = root.querySelectorAll<HTMLButtonElement>('[data-model-call-lang-tab]');
+
+				function readEngineFromServePanel(): string | null {
+					const btn = document.querySelector(
+						'[data-inference-matrix-root] .engine-rail-btn[aria-selected="true"]',
+					) as HTMLButtonElement | null;
+					const eng = btn?.getAttribute('data-engine')?.trim();
+					return eng || null;
+				}
+
+				function applyCallExampleVisibility() {
+					resetModelCallCopyLabels();
+					root.querySelectorAll<HTMLElement>('.model-call-block').forEach((el) => {
+						const blockKey = el.getAttribute('data-call-engine-key')?.trim() || '';
+						const blockLang = el.getAttribute('data-call-example-lang');
+						const rawApiStyle = el.getAttribute('data-call-api-style')?.trim() || '';
+						const langOk = !showCallLangTabs || blockLang === callLang;
+						const engineOk =
+							!blockKey || normalizeInferenceEngineKey(blockKey) === selectedEngineKey;
+						const apiOk =
+							selectedEngineKey !== 'ollama' ||
+							!rawApiStyle ||
+							rawApiStyle === callOllamaApiStyle;
+						el.classList.toggle('hidden', !(langOk && engineOk && apiOk));
+					});
+
+					if (apiStyleTabsWrap) {
+						const showApiBar = apiStyleTabs.length > 0 && selectedEngineKey === 'ollama';
+						apiStyleTabsWrap.classList.toggle('hidden', !showApiBar);
+					}
+				}
+
+				function setCallApiStyleTab(style: 'openai_compat' | 'ollama_native') {
+					callOllamaApiStyle = style;
+					applyCallExampleVisibility();
+					apiStyleTabs.forEach((btn) => {
+						const s = btn.getAttribute('data-model-call-api-tab');
+						const active = s === style;
+						btn.setAttribute('aria-selected', active ? 'true' : 'false');
+						const base =
+							'model-call-api-tab px-3 py-1.5 rounded-md text-xs font-bold transition-colors max-w-[11rem] sm:max-w-none leading-snug text-left';
+						btn.className =
+							base +
+							(active
+								? ' bg-nvidia-black text-nvidia-white shadow-sm'
+								: ' text-gray-500 hover:text-nvidia-black');
+					});
+				}
+
+				function setCallLangTab(lang: 'shell' | 'python') {
+					callLang = lang;
+					applyCallExampleVisibility();
+					langTabs.forEach((btn) => {
+						const l = btn.getAttribute('data-model-call-lang-tab');
+						const active = l === lang;
+						btn.setAttribute('aria-selected', active ? 'true' : 'false');
+						const base =
+							'model-call-lang-tab px-4 py-1.5 rounded-md text-xs font-bold transition-colors';
+						btn.className =
+							base +
+							(active
+								? ' bg-nvidia-black text-nvidia-white shadow-sm'
+								: ' text-gray-500 hover:text-nvidia-black');
+					});
+				}
+
+				function onInferenceEngineChanged(engineName: string) {
+					selectedEngineKey = normalizeInferenceEngineKey(engineName);
+					applyCallExampleVisibility();
+				}
+
+				document.addEventListener('jetson-inference-engine-changed', (ev) => {
+					const eng = (ev as CustomEvent<{ engine?: string }>).detail?.engine;
+					if (typeof eng === 'string' && eng.trim()) onInferenceEngineChanged(eng.trim());
+				});
+
+				langTabs.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const l = btn.getAttribute('data-model-call-lang-tab');
+						if (l === 'shell' || l === 'python') setCallLangTab(l);
+					});
+				});
+
+				apiStyleTabs.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const s = btn.getAttribute('data-model-call-api-tab');
+						if (s === 'openai_compat' || s === 'ollama_native') setCallApiStyleTab(s);
+					});
+				});
+
+				applyCallExampleVisibility();
+				requestAnimationFrame(() => {
+					const fromPanel = readEngineFromServePanel();
+					if (fromPanel) onInferenceEngineChanged(fromPanel);
+					else applyCallExampleVisibility();
+				});
+
+				function renderAllCallCommands() {
+					root.querySelectorAll<HTMLElement>('.model-call-command').forEach((codeEl) => {
+						if (!codeEl.dataset.callTemplate) {
+							codeEl.dataset.callTemplate = codeEl.textContent?.trim() || '';
+						}
+						const template = codeEl.dataset.callTemplate || '';
+						if (!template) return;
+						let raw = template;
+						if (hostInput) {
+							const h = hostInput.value.trim();
+							if (h !== '') {
+								raw = template
+									.replace(/\$\{JETSON_HOST\}/g, h)
+									.replace(/JETSON_HOST/g, h);
+							}
+						}
+						const lang = codeEl.dataset.callLang === 'python' ? 'python' : 'shell';
+						if (lang === 'shell') {
+							const { display, copy } = shellDisplayAndCopy(raw);
+							codeEl.dataset.copyPlain = copy;
+							codeEl.innerHTML = highlightSyntax(display, 'shell');
+						} else {
+							codeEl.dataset.copyPlain = raw;
+							codeEl.innerHTML = highlightSyntax(raw, 'python');
+						}
+					});
+				}
+
+				renderAllCallCommands();
+				hostInput?.addEventListener('input', () => {
+					resetModelCallCopyLabels();
+					renderAllCallCommands();
+				});
+
+				root.querySelectorAll<HTMLButtonElement>('.model-call-copy-btn').forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const idx = btn.getAttribute('data-call-copy');
+						const codeEl =
+							idx != null
+								? root.querySelector<HTMLElement>(`.model-call-command[data-call-index="${idx}"]`)
+								: null;
+						const copyText = codeEl?.dataset.copyPlain?.trim() || '';
+						if (!copyText) return;
+
+						const block = btn.closest('.model-call-block');
+						const engineLabel = block?.getAttribute('data-call-engine') || '';
+
+						resetModelCallCopyLabels();
+						const label = btn.querySelector<HTMLElement>('[data-call-copy-label]');
+						if (label) {
+							label.textContent = 'Copied';
+							callCopyLabelTimer = setTimeout(() => {
+								label.textContent = 'Copy command';
+								callCopyLabelTimer = null;
+							}, 1200);
+						}
+
+						void navigator.clipboard.writeText(copyText).then(() => {
+							trackCopyInferenceCommand({
+								source: 'model_page_client_call',
+								model_id: pageModelSlug,
+								module_id: '',
+								module_label: '',
+								inference_engine: engineLabel,
+							});
+						});
+					});
+				});
+			}
+
+			initModelCallSection();
+			document.addEventListener('astro:page-load', initModelCallSection);
+		</script>
+	)
+}

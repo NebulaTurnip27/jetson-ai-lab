@@ -7,12 +7,14 @@ icon: "🔮"
 is_new: false
 order: 4
 type: "Text"
+vision_capable: false
 memory_requirements: "24GB RAM"
 precision: "W4A16"
 model_size: "18GB"
 hf_checkpoint: "RedHatAI/Qwen3-32B-quantized.w4a16"
 huggingface_url: "https://huggingface.co/Qwen/Qwen3-32B"
 minimum_jetson: "Thor"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 benchmark:
   orin:
     concurrency1: 6.22
@@ -25,8 +27,19 @@ benchmark:
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve RedHatAI/Qwen3-32B-quantized.w4a16"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve RedHatAI/Qwen3-32B-quantized.w4a16"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve RedHatAI/Qwen3-32B-quantized.w4a16
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve RedHatAI/Qwen3-32B-quantized.w4a16
 ---
 
 Qwen3 32B is the flagship dense model in Alibaba Cloud's Qwen3 family. With 32 billion parameters, it delivers exceptional performance across complex reasoning, coding, and language understanding tasks.
@@ -44,3 +57,4 @@ Qwen3 32B is the flagship dense model in Alibaba Cloud's Qwen3 family. With 32 b
 - **Subject Matter Experts**: Fine-tuning for domain-specific expertise
 - **Multilingual Instruction Following**: Following instructions across 100+ languages
 - **Translation**: High-quality translation between supported languages
+

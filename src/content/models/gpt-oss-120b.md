@@ -7,22 +7,27 @@ icon: "🤖"
 is_new: false
 order: 2
 type: "Text"
+vision_capable: false
 memory_requirements: "64GB RAM"
 precision: "NVFP4"
 model_size: "60GB"
 hf_checkpoint: "openai/gpt-oss-120b"
 huggingface_url: "https://huggingface.co/openai/gpt-oss-120b"
 minimum_jetson: "Thor"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
     install_command: |-
       mkdir -p $HOME/.cache/tiktoken
       wget -q https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken \
         -O $HOME/.cache/tiktoken/cl100k_base.tiktoken
       wget -q https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken \
         -O $HOME/.cache/tiktoken/o200k_base.tiktoken
-    run_command_thor: |-
+    serve_command_thor: |-
       sudo docker run -it --rm --pull always --runtime=nvidia --network host \
         -v $HOME/.cache/huggingface:/root/.cache/huggingface \
         -v $HOME/.cache/tiktoken:/etc/encodings \

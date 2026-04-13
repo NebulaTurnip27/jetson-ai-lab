@@ -7,12 +7,14 @@ icon: "🔮"
 is_new: false
 order: 2
 type: "Text"
+vision_capable: false
 memory_requirements: "8GB RAM"
 precision: "W4A16"
 model_size: "4.5GB"
 hf_checkpoint: "RedHatAI/Qwen3-8B-quantized.w4a16"
 huggingface_url: "https://huggingface.co/Qwen/Qwen3-8B"
 minimum_jetson: "Orin NX"
+# Optional: gray tabs via matrix_modules_disabled. Per-engine allowlists: supported_inference_engines[].modules_supported (from minimum_jetson).
 benchmark:
   orin:
     concurrency1: 26.53
@@ -25,8 +27,21 @@ benchmark:
 supported_inference_engines:
   - engine: "vLLM"
     type: "Container"
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin vllm serve RedHatAI/Qwen3-8B-quantized.w4a16"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor vllm serve RedHatAI/Qwen3-8B-quantized.w4a16"
+    modules_supported:
+      - thor_t5000
+      - thor_t4000
+      - orin_agx_64
+      - orin_nx_16
+    serve_command_orin: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+        vllm serve RedHatAI/Qwen3-8B-quantized.w4a16
+    serve_command_thor: |-
+      sudo docker run -it --rm --pull always \
+        --runtime=nvidia --network host \
+        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-thor \
+        vllm serve RedHatAI/Qwen3-8B-quantized.w4a16
 ---
 
 Qwen3 8B is a more powerful variant in Alibaba Cloud's latest generation of large language models. With 8 billion parameters, it offers enhanced capabilities while remaining deployable on edge devices.
@@ -44,3 +59,4 @@ Qwen3 8B is a more powerful variant in Alibaba Cloud's latest generation of larg
 - **Subject Matter Experts**: Fine-tuning for domain-specific expertise
 - **Multilingual Instruction Following**: Following instructions across 100+ languages
 - **Translation**: High-quality translation between supported languages
+

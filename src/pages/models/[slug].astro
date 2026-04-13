@@ -1,7 +1,11 @@
 ---
 import { getCollection } from 'astro:content';
-import { Code } from 'astro:components';
 import Layout from '../../layouts/Layout.astro';
+import ModelServeSection from '../../components/ModelServeSection.astro';
+import ModelCallSection from '../../components/ModelCallSection.astro';
+import ModelBenchmarkSection from '../../components/ModelBenchmarkSection.astro';
+import ModelOneShotSection from '../../components/ModelOneShotSection.astro';
+import { getSupportedInferenceEngines, sortEnginesForUi } from '../../lib/modelFrontmatterAdapter';
 
 export async function getStaticPaths() {
   const models = await getCollection('models');
@@ -18,12 +22,18 @@ const { data } = entry;
 // Generate HuggingFace URL from hf_checkpoint if huggingface_url not provided
 const huggingfaceUrl = data.huggingface_url || (data.hf_checkpoint ? `https://huggingface.co/${data.hf_checkpoint}` : null);
 
-// Sort inference engines: vLLM first, then others alphabetically
-const sortedEngines = data.supported_inference_engines ? [...data.supported_inference_engines].sort((a, b) => {
-  if (a.engine === 'vLLM') return -1;
-  if (b.engine === 'vLLM') return 1;
-  return a.engine.localeCompare(b.engine);
-}) : [];
+const sortedEngines = sortEnginesForUi(getSupportedInferenceEngines(data));
+
+const inferenceNeedsHfToken = sortedEngines.some((e) => {
+  const cmds = [
+    e.serve_command_orin,
+    e.serve_command_thor,
+    e.run_command_orin,
+    e.run_command_thor,
+    e.run_command,
+  ];
+  return cmds.some((c) => c && c.includes('HF_TOKEN'));
+});
 ---
 
 <Layout title={data.title} description={data.short_description}>
@@ -48,8 +58,8 @@ const sortedEngines = data.supported_inference_engines ? [...data.supported_infe
           {/* Action Button - Primary CTA only */}
           <div class="flex flex-wrap gap-3">
             {/* Run on Jetson - scrolls to inference section */}
-            <a 
-              href="#jetson-inference" 
+            <a
+              href="#run-on-jetson"
               class="inline-flex items-center gap-2 px-4 py-2.5 bg-nvidia-green hover:bg-[#9aeb00] text-black font-semibold rounded-lg transition-colors"
             >
               Run on Jetson
@@ -66,6 +76,10 @@ const sortedEngines = data.supported_inference_engines ? [...data.supported_infe
               <span class="text-nvidia-gray-300 font-medium">Precision</span>
               <span class="font-bold text-nvidia-white">{data.precision}</span>
             </div>
+            <div class="flex justify-between items-center py-3 border-b border-nvidia-gray-700">
+              <span class="text-nvidia-gray-300 font-medium">Vision (VLM)</span>
+              <span class="font-bold text-nvidia-white">{data.vision_capable ? 'Yes' : 'No'}</span>
+            </div>
             <div class="flex justify-between items-center py-3">
               <span class="text-nvidia-gray-300 font-medium">Size</span>
               <span class="font-bold text-nvidia-white">{data.model_size}</span>
@@ -76,135 +90,45 @@ const sortedEngines = data.supported_inference_engines ? [...data.supported_infe
     </div>
   </section>
 
-  {/* Jetson Inference - Supported Inference Engines Section */}
-  {sortedEngines && sortedEngines.length > 0 && !data.hide_run_button && (
-    <section id="jetson-inference" class="py-16 bg-nvidia-gray-50 border-b border-nvidia-gray-200 scroll-mt-20">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="mb-10">
-          <h2 class="text-3xl font-bold text-nvidia-black mb-3">Jetson Inference - Supported Inference Engines</h2>
-        </div>
-
-        <!-- Engine Tabs -->
-        <div class="border-b border-gray-200 mb-8">
-          <div class="flex space-x-8">
-            {sortedEngines.map((engine, index) => (
-              <button
-                class={`engine-tab-btn pb-4 text-lg font-medium transition-all duration-200 border-b-2 ${index === 0 ? 'border-nvidia-green text-nvidia-green' : 'border-transparent text-gray-500 hover:text-nvidia-black hover:border-gray-300'}`}
-                data-engine={engine.engine}
-              >
-                {engine.engine}
-              </button>
-            ))}
+  {!data.hide_run_button && sortedEngines.length > 0 && (
+    <div id="run-on-jetson" class="scroll-mt-20">
+      <section
+        id="serve-model-and-call"
+        class="bg-nvidia-gray-50 border-b border-nvidia-gray-200 relative overflow-hidden scroll-mt-20"
+        aria-labelledby="serve-the-model-heading"
+      >
+        <div
+          class="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.12]"
+          style="background-image: url('/images/inference-call-band.png');"
+          aria-hidden="true"
+        />
+        <div class="relative z-[1]">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
+            <h2 id="serve-the-model-heading" class="text-3xl font-bold text-nvidia-black mb-0">
+              Serve the model
+            </h2>
           </div>
+          <ModelServeSection
+            modelSlug={entry.slug}
+            engines={sortedEngines}
+            needsHfToken={inferenceNeedsHfToken}
+            matrixModulesDisabled={data.matrix_modules_disabled}
+            sectionClass="!bg-transparent !border-b-0 !scroll-mt-0 pt-8 pb-8"
+          />
+          <ModelCallSection
+            modelSlug={entry.slug}
+            engines={sortedEngines}
+            hfCheckpoint={data.hf_checkpoint}
+            clientCall={data.client_call}
+            sectionClass="!bg-transparent !border-b-0 !border-t-0 !scroll-mt-0 pt-10 pb-16"
+          />
         </div>
-
-        <!-- Engine Contents -->
-        <div class="space-y-6">
-          {sortedEngines.map((engine, index) => {
-             const cmds = {
-               default: { install: engine.install_command, run: engine.run_command },
-               orin: { 
-                 install: engine.install_command_orin || engine.install_command, 
-                 run: engine.run_command_orin || engine.run_command 
-               },
-               thor: { 
-                 install: engine.install_command_thor || engine.install_command, 
-                 run: engine.run_command_thor || engine.run_command 
-               }
-             };
-
-             return (
-              <div class={`engine-content ${index === 0 ? '' : 'hidden'}`} data-engine={engine.engine}>
-                <div class="bg-white rounded-xl overflow-hidden border border-nvidia-gray-200 shadow-sm">
-                  
-                  <!-- Platform Tabs (Sub-navigation) -->
-                  <div class="px-6 py-4 border-b border-nvidia-gray-100 bg-nvidia-gray-50 flex items-center justify-between">
-                     <div class="flex items-center gap-3">
-                        <div class="h-8 w-8 bg-nvidia-green/10 rounded-lg flex items-center justify-center text-lg">
-                           🚀
-                        </div>
-                        <span class="font-semibold text-nvidia-black">{engine.type}</span>
-                     </div>
-                     
-                     <div class="flex space-x-1 bg-white p-1 rounded-lg border border-gray-200">
-                        <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-nvidia-black text-nvidia-white shadow-sm platform-btn" data-target="orin" data-parent={engine.engine}>
-                          Jetson Orin
-                        </button>
-                        <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-nvidia-gray-600 hover:text-nvidia-black hover:bg-gray-50 platform-btn" data-target="thor" data-parent={engine.engine}>
-                          Jetson Thor
-                        </button>
-                     </div>
-                  </div>
-                
-                  <div class="p-6">
-                    {['orin', 'thor'].map((platform) => {
-                       const installCmd = cmds[platform].install;
-                       const runCmd = cmds[platform].run;
-                       let combinedCode = '';
-                       
-                       if (installCmd) {
-                           combinedCode += `# Installation\n${installCmd}`;
-                       }
-                       
-                       if (runCmd) {
-                           if (combinedCode) combinedCode += '\n\n';
-                           combinedCode += `# Run Command\n${runCmd}`;
-                       }
-
-                       return (
-                      <div class={`platform-content space-y-6 ${platform === 'orin' ? '' : 'hidden'}`} data-platform={platform} data-parent={engine.engine}>
-                         {!combinedCode && (
-                           <p class="text-nvidia-gray-500 italic text-center py-4">This model is not supported on this platform.</p>
-                         )}
-
-                         {combinedCode && (
-                           <div class="relative group">
-                               <div class="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                 <button class="bg-gray-700/50 hover:bg-gray-600 text-white p-1.5 rounded-md text-xs backdrop-blur-sm copy-btn transition-colors border border-gray-600" data-code={combinedCode} aria-label="Copy to clipboard">
-                                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                     <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                                     <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                                   </svg>
-                                 </button>
-                               </div>
-                               <Code code={combinedCode} lang="bash" theme="github-dark" class="!bg-[#0f172a] !rounded-xl shadow-lg border border-gray-800 text-sm leading-relaxed !p-4 overflow-x-auto" />
-                           </div>
-                         )}
-
-                         {/* Benchmark Numbers - Only show for vLLM engine */}
-                         {engine.engine === 'vLLM' && data.benchmark && data.benchmark[platform] && (
-                           <div class="mt-6 pt-6 border-t border-nvidia-gray-200">
-                             <h4 class="text-sm font-semibold text-nvidia-gray-500 uppercase tracking-wide mb-4">Performance on Jetson {platform === 'orin' ? 'Orin' : 'Thor'} with vLLM</h4>
-                             <div class="grid grid-cols-2 gap-4">
-                               <div class="bg-nvidia-gray-50 rounded-lg p-4">
-                                 <div class="text-3xl font-bold text-nvidia-green text-center">{data.benchmark[platform].concurrency1}</div>
-                                 <div class="text-sm text-nvidia-gray-600 mt-2 text-center">output tokens/sec</div>
-                                 <div class="text-xs text-nvidia-gray-400 mt-1 text-center">Single request (concurrency=1)</div>
-                               </div>
-                               <div class="bg-nvidia-gray-50 rounded-lg p-4">
-                                 <div class="text-3xl font-bold text-nvidia-green text-center">{data.benchmark[platform].concurrency8}</div>
-                                 <div class="text-sm text-nvidia-gray-600 mt-2 text-center">output tokens/sec</div>
-                                 <div class="text-xs text-nvidia-gray-400 mt-1 text-center">8 parallel requests (concurrency=8)</div>
-                               </div>
-                             </div>
-                             {data.benchmark[platform].ttftMs > 0 && (
-                               <div class="mt-4 bg-nvidia-gray-50 rounded-lg p-4 text-center">
-                                 <div class="text-2xl font-bold text-nvidia-black">{data.benchmark[platform].ttftMs} ms</div>
-                                 <div class="text-sm text-nvidia-gray-600 mt-1">Time to First Token</div>
-                               </div>
-                             )}
-                           </div>
-                         )}
-                      </div>
-                    )})}
-                  </div>
-                </div>
-              </div>
-             );
-          })}
-        </div>
-      </div>
-    </section>
+      </section>
+      <ModelOneShotSection oneShot={data.one_shot_inference} modelSlug={entry.slug} />
+      {data.benchmark && (
+        <ModelBenchmarkSection benchmark={data.benchmark} engines={sortedEngines} />
+      )}
+    </div>
   )}
 
   {/* Model Details / Description Section */}
@@ -249,82 +173,6 @@ const sortedEngines = data.supported_inference_engines ? [...data.supported_infe
 </Layout>
 
 <script>
-  // Engine Tab Switching
-  const engineTabs = document.querySelectorAll('.engine-tab-btn');
-  const engineContents = document.querySelectorAll('.engine-content');
-
-  engineTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetEngine = tab.dataset.engine;
-      
-      // Update tabs
-      engineTabs.forEach(t => {
-        if (t.dataset.engine === targetEngine) {
-          t.classList.remove('border-transparent', 'text-gray-500', 'hover:text-nvidia-black', 'hover:border-gray-300');
-          t.classList.add('border-nvidia-green', 'text-nvidia-green');
-        } else {
-          t.classList.add('border-transparent', 'text-gray-500', 'hover:text-nvidia-black', 'hover:border-gray-300');
-          t.classList.remove('border-nvidia-green', 'text-nvidia-green');
-        }
-      });
-
-      // Update content
-      engineContents.forEach(content => {
-        if (content.dataset.engine === targetEngine) {
-          content.classList.remove('hidden');
-        } else {
-          content.classList.add('hidden');
-        }
-      });
-    });
-  });
-
-  // Platform Switching (scoped to active engine)
-  const platformBtns = document.querySelectorAll('.platform-btn');
-  const platformContents = document.querySelectorAll('.platform-content');
-
-  platformBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetPlatform = btn.dataset.target;
-      const parentEngine = btn.dataset.parent;
-
-      // Update buttons for this engine
-      platformBtns.forEach(b => {
-        if (b.dataset.parent === parentEngine) {
-          if (b.dataset.target === targetPlatform) {
-              b.classList.remove('text-nvidia-gray-600', 'hover:text-nvidia-black', 'hover:bg-gray-50');
-              b.classList.add('bg-nvidia-black', 'text-nvidia-white', 'shadow-sm');
-          } else {
-              b.classList.add('text-nvidia-gray-600', 'hover:text-nvidia-black', 'hover:bg-gray-50');
-              b.classList.remove('bg-nvidia-black', 'text-nvidia-white', 'shadow-sm');
-          }
-        }
-      });
-
-      // Update content for this engine
-      platformContents.forEach(content => {
-        if (content.dataset.parent === parentEngine) {
-          if (content.dataset.platform === targetPlatform) {
-              content.classList.remove('hidden');
-          } else {
-              content.classList.add('hidden');
-          }
-        }
-      });
-    });
-  });
-
-  // Copy functionality
-  document.querySelectorAll('.copy-btn').forEach(btn => {
-     btn.addEventListener('click', () => {
-        navigator.clipboard.writeText(btn.dataset.code);
-        // Optional: visual feedback
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
-        setTimeout(() => btn.innerHTML = originalHtml, 2000);
-     });
-  });
-
   // Body content device tabs (inside markdown-rendered sections)
   document.querySelectorAll('.device-tabs').forEach(group => {
     const buttons = group.querySelectorAll('.device-tab');

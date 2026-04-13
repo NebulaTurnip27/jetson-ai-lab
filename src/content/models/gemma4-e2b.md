@@ -6,7 +6,8 @@ family: "Google Gemma4"
 icon: "💎"
 is_new: true
 order: 1
-type: "Text"
+type: "Multimodal"
+vision_capable: true
 memory_requirements: "8GB RAM"
 precision: "Q8_0 GGUF"
 model_size: "5.0GB"

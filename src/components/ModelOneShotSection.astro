@@ -1,0 +1,476 @@
+---
+import JetsonModuleTabBar from './matrix/JetsonModuleTabBar.astro';
+import type { MatrixModuleTabItem } from './matrix/panelTypes';
+import {
+	evalMatrixModuleSpecs,
+	evalModalShowsPython,
+	evalModalShowsShell,
+	evalSnippetByModule,
+	type OneShotForRunModal,
+} from '../lib/evalRunModal';
+
+export interface OneShotInferenceProps {
+	modules_supported?: string[];
+	run_command_orin?: string;
+	run_command_thor?: string;
+	shell?: string;
+	python?: string;
+	intro?: string;
+	shell_by_module?: Record<string, string>;
+	python_by_module?: Record<string, string>;
+}
+
+interface Props {
+	oneShot?: OneShotInferenceProps | null;
+	modelSlug: string;
+}
+
+const { oneShot, modelSlug } = Astro.props;
+
+const shot = oneShot as OneShotForRunModal | null | undefined;
+const orinOne = shot?.run_command_orin?.trim() ?? '';
+const thorOne = shot?.run_command_thor?.trim() ?? '';
+const hasContent = Boolean(
+	orinOne ||
+		thorOne ||
+		shot?.shell?.trim() ||
+		shot?.python?.trim() ||
+		(shot?.shell_by_module && Object.values(shot.shell_by_module).some((s) => String(s).trim())) ||
+		(shot?.python_by_module && Object.values(shot.python_by_module).some((s) => String(s).trim()))
+);
+
+const moduleSpecs = hasContent && shot ? evalMatrixModuleSpecs(shot) : [];
+const snippetMap =
+	hasContent && shot && moduleSpecs.length
+		? evalSnippetByModule(
+				shot,
+				moduleSpecs.map((m) => m.id)
+			)
+		: {};
+const showShell = evalModalShowsShell(snippetMap);
+const showPython = evalModalShowsPython(snippetMap);
+const showKindTabs = showShell && showPython;
+
+const defaultModuleId = moduleSpecs[0]?.id ?? '';
+const _firstShellIdx = moduleSpecs.findIndex((m) => (snippetMap[m.id]?.shell || '').trim().length > 0);
+const firstEnabledModuleIndex = _firstShellIdx >= 0 ? _firstShellIdx : 0;
+
+const oneShotModuleItems: MatrixModuleTabItem[] = moduleSpecs.map((m) => ({
+	id: m.id,
+	label: m.label,
+	tabKicker: m.tabKicker,
+	tabTitleBold: m.tabTitleBold,
+	tabSubtitleGray: m.tabSubtitleGray,
+	iconSrc: m.iconSrc,
+	iconBadgeFamily: m.iconBadgeFamily,
+	iconBadgeMemory: m.iconBadgeMemory,
+	globalDisabled: false,
+}));
+const oneShotTabDisabled = moduleSpecs.map((m) => {
+	const hasSnippet =
+		(snippetMap[m.id]?.shell || '').trim().length > 0 || (snippetMap[m.id]?.python || '').trim().length > 0;
+	return !hasSnippet;
+});
+
+const panelConfigJson = JSON.stringify({
+	modules: moduleSpecs.map((m) => ({
+		id: m.id,
+		label: m.label,
+		platformKey: m.platformKey,
+		tabKicker: m.tabKicker,
+		tabTitleBold: m.tabTitleBold,
+		tabSubtitleGray: m.tabSubtitleGray,
+		iconSrc: m.iconSrc,
+		iconBadgeFamily: m.iconBadgeFamily,
+		iconBadgeMemory: m.iconBadgeMemory,
+	})),
+	snippets: snippetMap,
+	defaultModule: defaultModuleId,
+	defaultKind: showKindTabs ? 'shell' : showPython ? 'python' : 'shell',
+	showKindTabs,
+	modelSlug,
+});
+---
+
+<section
+	id="model-one-shot-inference"
+	class="py-14 scroll-mt-20 border-t border-b border-nvidia-gray-200 bg-nvidia-gray-50"
+	aria-labelledby="model-one-shot-heading"
+	data-model-slug={modelSlug}
+>
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<h2 id="model-one-shot-heading" class="text-3xl font-bold text-nvidia-black mb-2">
+			One-shot inference
+		</h2>
+		{
+			hasContent && moduleSpecs.length > 0 ? (
+				<>
+					{shot?.intro?.trim() ? (
+						<p class="text-sm text-nvidia-gray-600 mb-6">{shot.intro.trim()}</p>
+					) : (
+						<p class="text-sm text-nvidia-gray-600 mb-6">
+							Choose a Jetson module, adjust optional parameters, then copy the command to run a single inference on
+							the device.
+						</p>
+					)}
+
+					<script
+						type="application/json"
+						id="one-shot-panel-config"
+						set:html={panelConfigJson}
+					/>
+
+					<div
+						class="bg-white rounded-xl border border-nvidia-gray-200 shadow-sm overflow-hidden"
+						id="one-shot-matrix-panel"
+						role="region"
+						aria-label="One-shot commands by Jetson module"
+					>
+						<JetsonModuleTabBar
+							variant="one-shot"
+							modules={oneShotModuleItems}
+							tabDisabled={oneShotTabDisabled}
+							firstEnabledIndex={firstEnabledModuleIndex >= 0 ? firstEnabledModuleIndex : 0}
+							tabIdPrefix="one-shot-tab-"
+						/>
+
+						<div class="flex flex-col lg:flex-row min-h-0 min-w-0 items-stretch">
+							<aside class="w-full lg:w-[min(100%,18rem)] xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-nvidia-gray-100 bg-nvidia-gray-50/80 min-w-0 flex flex-col">
+								<h3 class="text-xs font-bold text-nvidia-gray-400 uppercase tracking-wider px-4 pt-4 lg:pt-5 lg:px-4 mb-2 lg:mb-3">
+									Parameters
+								</h3>
+								<div class="px-4 pb-4 lg:px-4 lg:pb-5 space-y-4 flex-1">
+									<p class="text-[10px] text-nvidia-gray-500 leading-snug m-0">
+										Optional. Appended to the <strong>shell</strong> one-shot command when you copy (not applied to
+										Python snippets).
+									</p>
+									<div>
+										<label
+											for="one-shot-extra-cli"
+											class="block text-[10px] font-medium text-nvidia-gray-600 mb-1"
+										>
+											Extra CLI arguments
+										</label>
+										<input
+											id="one-shot-extra-cli"
+											type="text"
+											placeholder='e.g. "Hello" --verbose'
+											class="w-full bg-white border border-nvidia-gray-200 text-nvidia-black text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nvidia-green/20 focus:border-nvidia-green outline-none placeholder:text-nvidia-gray-300 font-mono"
+											autocomplete="off"
+										/>
+									</div>
+								</div>
+
+								{
+									showKindTabs && (
+										<div class="mt-auto border-t border-nvidia-gray-200 px-3 py-3 lg:px-4">
+											<h4 class="text-[10px] font-bold text-nvidia-gray-400 uppercase tracking-wider mb-2">
+												Snippet type
+											</h4>
+											<div
+												class="one-shot-kind-bar flex flex-row gap-1 p-1 rounded-lg bg-nvidia-gray-100/80"
+												role="tablist"
+												aria-label="Snippet type"
+											>
+												{showShell && (
+													<button
+														type="button"
+														role="tab"
+														class="one-shot-kind-btn flex-1 text-center text-xs font-semibold py-2 rounded-md transition-colors bg-nvidia-green text-nvidia-black shadow-sm"
+														data-kind="shell"
+														aria-selected="true"
+													>
+														Shell
+													</button>
+												)}
+												{showPython && (
+													<button
+														type="button"
+														role="tab"
+														class:list={[
+															'one-shot-kind-btn flex-1 text-center text-xs font-semibold py-2 rounded-md transition-colors',
+															showShell
+																? 'text-nvidia-gray-600 hover:bg-white/80'
+																: 'bg-nvidia-green text-nvidia-black shadow-sm',
+														]}
+														data-kind="python"
+														aria-selected={showShell ? 'false' : 'true'}
+													>
+														Python
+													</button>
+												)}
+											</div>
+										</div>
+									)
+								}
+							</aside>
+
+							<div class="flex-1 min-w-0 w-full p-4 sm:p-6 bg-nvidia-gray-50/50 flex flex-col">
+								<div class="min-w-0 flex-1 flex flex-col w-full max-w-full">
+									<div class="min-w-0 shrink-0 mb-3">
+										<p class="text-xs font-semibold text-nvidia-gray-400 uppercase tracking-wide m-0">Command</p>
+										<p class="text-sm text-nvidia-gray-700 mt-1 break-words m-0">
+											<span class="font-medium text-nvidia-black" id="one-shot-mod-label" />
+											<span class="text-nvidia-gray-400 mx-1">·</span>
+											<span id="one-shot-kind-label">Shell</span>
+										</p>
+									</div>
+
+									<p id="one-shot-command-empty" class="hidden text-nvidia-gray-500 italic text-center py-8">
+										No snippet for this module and type in model data.
+									</p>
+
+									<div id="one-shot-command-block" class="relative min-w-0 w-full max-w-full flex-1 flex flex-col">
+										<div
+											class="one-shot-code-wrap relative rounded-xl border border-gray-800 shadow-lg bg-[#0f172a] flex-1 min-h-[8rem] w-full max-w-full"
+										>
+											<button
+												type="button"
+												id="one-shot-copy-btn"
+												class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/65 backdrop-blur-sm border border-white/40 text-nvidia-gray-800 hover:bg-white/80 hover:border-nvidia-green/60 hover:text-nvidia-green transition-all shadow-md text-xs font-bold disabled:opacity-40 disabled:pointer-events-none"
+												disabled
+											>
+												<svg
+													class="w-3.5 h-3.5 shrink-0"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+													aria-hidden="true"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+													/>
+												</svg>
+												<span data-one-shot-copy-label>Copy</span>
+											</button>
+											<pre
+												class="text-sm font-mono text-slate-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 m-0 min-h-[8rem]"
+											>
+												<code
+													id="one-shot-command-display"
+													class="block w-full max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+												/>
+											</pre>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</>
+			) : hasContent ? (
+				<p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+					One-shot content is present but no Jetson module tabs could be built. Check{' '}
+					<code class="text-xs bg-white/80 px-1 rounded">modules_supported</code> and snippet fields in front matter.
+				</p>
+			) : (
+				<p class="text-sm text-nvidia-gray-500">
+					Scripts, notebooks, and eval workflows for this model will be linked here when available. You can add them
+					under <code class="text-xs bg-nvidia-gray-200/80 px-1 rounded">one_shot_inference</code> in the model front
+					matter.
+				</p>
+			)
+		}
+	</div>
+</section>
+
+{
+	hasContent && moduleSpecs.length > 0 && (
+		<script>
+			import { highlightSyntax, shellDisplayAndCopy } from '../lib/commandSyntaxHighlight';
+			import { readInferenceBrowserPrefs, writeInferenceBrowserPrefsPatch } from '../lib/inferenceBrowserPrefs';
+			import { syncMatrixModuleTabSelection } from '../lib/matrixUiSync';
+
+			type OneShotCfg = {
+				modules: {
+					id: string;
+					label: string;
+					platformKey: string;
+					tabKicker: string;
+					tabTitleBold: string;
+					tabSubtitleGray?: string;
+					iconSrc?: string;
+					iconBadgeFamily?: string;
+					iconBadgeMemory?: string;
+				}[];
+				snippets: Record<string, { shell: string; python: string }>;
+				defaultModule: string;
+				defaultKind: 'shell' | 'python';
+				showKindTabs: boolean;
+				modelSlug: string;
+			};
+
+			function initOneShotMatrix() {
+				const root = document.getElementById('model-one-shot-inference');
+				const jsonEl = document.getElementById('one-shot-panel-config');
+				if (!root || !jsonEl || root.dataset.oneShotMatrixInit === '1') return;
+				let cfg: OneShotCfg;
+				try {
+					cfg = JSON.parse(jsonEl.textContent || '{}') as OneShotCfg;
+				} catch {
+					return;
+				}
+				if (!cfg.modules?.length) return;
+				root.dataset.oneShotMatrixInit = '1';
+
+				const moduleTabs = root.querySelectorAll<HTMLButtonElement>('.one-shot-module-tab');
+				const kindBtns = root.querySelectorAll<HTMLButtonElement>('.one-shot-kind-btn');
+				const display = document.getElementById('one-shot-command-display');
+				const copyBtn = document.getElementById('one-shot-copy-btn') as HTMLButtonElement | null;
+				const modLabelEl = document.getElementById('one-shot-mod-label');
+				const kindLabelEl = document.getElementById('one-shot-kind-label');
+				const emptyEl = document.getElementById('one-shot-command-empty');
+				const blockEl = document.getElementById('one-shot-command-block');
+				const extraInput = document.getElementById('one-shot-extra-cli') as HTMLInputElement | null;
+				const displayEl = document.getElementById('one-shot-command-display');
+
+				let activeModule = cfg.defaultModule;
+				let activeKind: 'shell' | 'python' = cfg.defaultKind;
+
+				function moduleMeta(id: string) {
+					return cfg.modules.find((m) => m.id === id);
+				}
+
+				function baseText(): string {
+					const row = cfg.snippets[activeModule];
+					if (!row) return '';
+					return activeKind === 'python' ? (row.python || '').trim() : (row.shell || '').trim();
+				}
+
+				function displayText(): string {
+					const base = baseText();
+					if (activeKind !== 'shell' || !extraInput?.value.trim()) return base;
+					const extra = extraInput.value.trim();
+					if (!base) return extra;
+					return `${base} ${extra}`;
+				}
+
+				function setModuleTabStyles() {
+					syncMatrixModuleTabSelection(moduleTabs, (btn) => {
+						const b = btn as HTMLButtonElement;
+						const id = b.dataset.module || '';
+						return id === activeModule;
+					});
+				}
+
+				function setKindTabStyles() {
+					kindBtns.forEach((btn) => {
+						const k = (btn.dataset.kind || '') as 'shell' | 'python';
+						const sel = k === activeKind;
+						btn.setAttribute('aria-selected', sel ? 'true' : 'false');
+						btn.classList.toggle('bg-nvidia-green', sel);
+						btn.classList.toggle('text-nvidia-black', sel);
+						btn.classList.toggle('shadow-sm', sel);
+						btn.classList.toggle('text-nvidia-gray-600', !sel);
+						btn.classList.toggle('hover:bg-white/80', !sel);
+					});
+				}
+
+				function render() {
+					const text = baseText();
+					const shown = displayText();
+					const meta = moduleMeta(activeModule);
+					if (modLabelEl) modLabelEl.textContent = meta?.label || '';
+					if (kindLabelEl) kindLabelEl.textContent = activeKind === 'python' ? 'Python' : 'Shell';
+
+					if (!text) {
+						emptyEl?.classList.remove('hidden');
+						blockEl?.classList.add('hidden');
+						if (copyBtn) copyBtn.disabled = true;
+						return;
+					}
+					emptyEl?.classList.add('hidden');
+					blockEl?.classList.remove('hidden');
+					if (copyBtn) copyBtn.disabled = false;
+
+					if (!displayEl) return;
+					displayEl.dataset.copyPlain = shown;
+					const lang = activeKind === 'python' ? 'python' : 'shell';
+					const { display: shellDisp } =
+						lang === 'shell' ? shellDisplayAndCopy(shown) : { display: shown };
+					displayEl.innerHTML = highlightSyntax(shellDisp, lang);
+				}
+
+				moduleTabs.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const id = btn.dataset.module;
+						if (!id || btn.disabled) return;
+						const row = cfg.snippets[id];
+						if (!(row?.shell || '').trim() && !(row?.python || '').trim()) return;
+						activeModule = id;
+						setModuleTabStyles();
+						render();
+					});
+				});
+
+				kindBtns.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const k = btn.dataset.kind as 'shell' | 'python' | undefined;
+						if (!k) return;
+						activeKind = k;
+						setKindTabStyles();
+						render();
+					});
+				});
+
+				extraInput?.addEventListener('input', () => render());
+
+				copyBtn?.addEventListener('click', () => {
+					const plain = displayEl?.dataset.copyPlain?.trim() || '';
+					if (!plain) return;
+					void navigator.clipboard.writeText(plain);
+					const label = copyBtn.querySelector('[data-one-shot-copy-label]');
+					if (label) {
+						const prev = label.textContent || '';
+						label.textContent = 'Copied';
+						setTimeout(() => {
+							label.textContent = prev;
+						}, 1200);
+					}
+				});
+
+				const prefs = readInferenceBrowserPrefs();
+				const firstWith = cfg.modules.find((m) => {
+					const r = cfg.snippets[m.id];
+					return (r?.shell || '').trim() || (r?.python || '').trim();
+				});
+				if (prefs.matrixModuleId) {
+					const r = cfg.snippets[prefs.matrixModuleId];
+					if (r && ((r.shell || '').trim() || (r.python || '').trim())) {
+						activeModule = prefs.matrixModuleId;
+					} else if (firstWith) {
+						activeModule = firstWith.id;
+					}
+				} else if (firstWith) {
+					activeModule = firstWith.id;
+				}
+				if (!cfg.showKindTabs) {
+					const r0 = cfg.snippets[activeModule];
+					if (r0 && !(r0.shell || '').trim() && (r0.python || '').trim()) activeKind = 'python';
+					else activeKind = 'shell';
+				}
+				setModuleTabStyles();
+				setKindTabStyles();
+				render();
+			}
+
+			initOneShotMatrix();
+			document.addEventListener('astro:page-load', initOneShotMatrix);
+		</script>
+	)
+}
+
+<style is:global>
+	.one-shot-code-wrap {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-x: hidden;
+	}
+	.one-shot-module-bar {
+		overflow-y: hidden;
+	}
+</style>

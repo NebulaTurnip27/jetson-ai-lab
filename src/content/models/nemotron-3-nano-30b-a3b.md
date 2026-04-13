@@ -7,6 +7,7 @@ icon: "⚡"
 is_new: false
 order: 1
 type: "Text"
+vision_capable: false
 memory_requirements: "32GB RAM"
 precision: "FP4"
 model_size: "17GB"
@@ -14,35 +15,64 @@ hf_checkpoint: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 huggingface_url: "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 build_nvidia_url: "https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b"
 minimum_jetson: "AGX Orin"
-supported_inference_engines:
-  - engine: "vLLM"
-    type: "Container"
-    run_command_orin: |-
-      sudo docker run -it --rm --pull always --runtime=nvidia --network host \
-        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-        ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
-        vllm serve stelterlab/NVIDIA-Nemotron-3-Nano-30B-A3B-AWQ \
-          --gpu-memory-utilization 0.8 \
-          --trust-remote-code
-    run_command_thor: |-
-      sudo docker run -it --rm --pull always \
-        --runtime=nvidia --network host \
-        -e HF_TOKEN=$HF_TOKEN \
-        -e VLLM_USE_FLASHINFER_MOE_FP4=1 \
-        -e VLLM_FLASHINFER_MOE_BACKEND=throughput \
-        -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-        nvcr.io/nvidia/vllm:25.12.post1-py3 \
-        bash -c "wget -q -O /tmp/nano_v3_reasoning_parser.py \
-        --header=\"Authorization: Bearer \$HF_TOKEN\" \
-        https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4/resolve/main/nano_v3_reasoning_parser.py \
-        && vllm serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
-        --gpu-memory-utilization 0.8 \
-        --trust-remote-code \
-        --enable-auto-tool-choice \
-        --tool-call-parser qwen3_coder \
-        --reasoning-parser-plugin /tmp/nano_v3_reasoning_parser.py \
-        --reasoning-parser nano_v3 \
-        --kv-cache-dtype fp8"
+# Optional: gray tabs for every engine (`matrix_modules_disabled`). Per-engine allowlists use `serving.entries[].modules_supported`.
+serving:
+  entries:
+    - engine: "vLLM"
+      type: "Container"
+      # Demo: Orin Nano 8GB tab is gray for vLLM only; switch to Ollama to enable it.
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+        - orin_nx_16
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin \
+          vllm serve stelterlab/NVIDIA-Nemotron-3-Nano-30B-A3B-AWQ \
+            --gpu-memory-utilization 0.8 \
+            --trust-remote-code
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -e HF_TOKEN=$HF_TOKEN \
+          -e VLLM_USE_FLASHINFER_MOE_FP4=1 \
+          -e VLLM_FLASHINFER_MOE_BACKEND=throughput \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          nvcr.io/nvidia/vllm:25.12.post1-py3 \
+          bash -c "wget -q -O /tmp/nano_v3_reasoning_parser.py \
+            --header=\"Authorization: Bearer \$HF_TOKEN\" \
+            https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4/resolve/main/nano_v3_reasoning_parser.py \
+            && vllm serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
+              --gpu-memory-utilization 0.8 \
+              --trust-remote-code \
+              --enable-auto-tool-choice \
+              --tool-call-parser qwen3_coder \
+              --reasoning-parser-plugin /tmp/nano_v3_reasoning_parser.py \
+              --reasoning-parser nano_v3 \
+              --kv-cache-dtype fp8"
+    - engine: "Ollama"
+      type: "CLI"
+      # Same CLI on AGX Orin 64GB-class and Thor (Jetson matrix tabs below).
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+        - orin_nx_16
+        - orin_nano_8
+      serve_command_orin: ollama pull nemotron-3-nano && ollama serve
+      serve_command_thor: ollama pull nemotron-3-nano && ollama serve
+one_shot_inference:
+  modules_supported:
+    - thor_t5000
+    - thor_t4000
+    - orin_agx_64
+    - orin_nx_16
+    - orin_nano_8
+  run_command_orin: ollama run nemotron-3-nano
+  run_command_thor: ollama run nemotron-3-nano
 ---
 
 **Note:** The Thor command requires a [Hugging Face access token](https://huggingface.co/settings/tokens) with access to the gated NVFP4 checkpoint. The Orin command uses a community AWQ checkpoint that does not require authentication. If you see *"Free memory on device … is less than desired GPU memory utilization"*, lower `--gpu-memory-utilization` in the Advanced options.

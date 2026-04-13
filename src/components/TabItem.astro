@@ -1,0 +1,32 @@
+---
+interface Props {
+  label: string;
+  icon?: string;
+}
+
+const { label, icon } = Astro.props;
+---
+
+<!-- Tab button (goes in header) -->
+<button
+  role="tab"
+  aria-selected="false"
+  tabindex="0"
+  slot="tabs"
+  type="button"
+>
+  {icon && <span class="icon mr-2" set:html={icon} />}
+  {label}
+</button>
+
+<!-- Tab panel (goes in content area) -->
+<div role="tabpanel" class="hidden">
+  <slot />
+</div>
+
+<style>
+  .icon {
+    @apply inline-block w-5 h-5 align-text-bottom;
+  }
+</style>
+
