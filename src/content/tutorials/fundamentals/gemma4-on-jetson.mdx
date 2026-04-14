@@ -104,6 +104,12 @@ sudo docker run -it --rm --pull always --runtime=nvidia --network host \
   llama-server -hf unsloth/gemma-4-E2B-it-GGUF:Q4_K_S
 ```
 
+Then, access `http://localhost:8080` to see the UI.
+
+<Note title="ℹ️ Ollama on Orin Nano">
+  With `Ollama`, Gemma 4 does not work on **Orin Nano** right now. The Ollama path still works on the others if that interests you.
+</Note>
+
 If you want the same GGUF-style `llama.cpp` flow on bigger Jetson devices, the pattern stays the same and you mainly swap the container image and checkpoint.
 
 | Model | GGUF checkpoint |
@@ -159,9 +165,9 @@ curl -sN http://127.0.0.1:8000/v1/chat/completions \
 
 For Jetson, the practical takeaway is simple: use `vLLM` if you want the small-model audio path, and keep in mind that there is currently an audio issue for **E2B** under `llama.cpp`.
 
-## Things to Watch Out For
+## Things to Watch Out For with vLLM
 
-If you are using streaming, you are generally good. If you are not, you should look out for cases where the model's thought text can leak into `content` instead of being cleanly separated from the final answer.
+If you are using Gemma 4 through `vLLM`, this is the main thing to watch out for. If you are using streaming, you are generally good. If you are not, you should look out for cases where the model's thought text can leak into `content` instead of being cleanly separated from the final answer.
 
 If you are testing with non-streaming requests, try:
 
