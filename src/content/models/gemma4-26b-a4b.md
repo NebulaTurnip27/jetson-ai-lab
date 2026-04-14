@@ -14,11 +14,26 @@ model_size: "16.8GB"
 hf_checkpoint: "ggml-org/gemma-4-26B-A4B-it-GGUF"
 huggingface_url: "https://huggingface.co/google/gemma-4-26B-A4B-it"
 minimum_jetson: "AGX Orin"
-supported_inference_engines:
-  - engine: "llama.cpp"
-    type: "Container"
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin llama-server -hf ggml-org/gemma-4-26B-A4B-it-GGUF:Q4_K_M"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor llama-server -hf ggml-org/gemma-4-26B-A4B-it-GGUF:Q4_K_M"
+serving:
+  entries:
+    - engine: "llama.cpp"
+      type: "Container"
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin \
+          llama-server -hf ggml-org/gemma-4-26B-A4B-it-GGUF:Q4_K_M
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor \
+          llama-server -hf ggml-org/gemma-4-26B-A4B-it-GGUF:Q4_K_M
 ---
 
 Gemma 4 26B-A4B is a larger Gemma 4 variant that can be served on Jetson with `llama.cpp`. Google presents this model as the latency-optimized high-end option in the family: a Mixture-of-Experts model that targets much better throughput than a dense model of similar total size.

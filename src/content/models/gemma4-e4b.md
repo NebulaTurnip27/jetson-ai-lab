@@ -13,17 +13,33 @@ precision: "Q4_K_M GGUF"
 model_size: "5.3GB"
 hf_checkpoint: "ggml-org/gemma-4-E4B-it-GGUF"
 huggingface_url: "https://huggingface.co/google/gemma-4-E4B-it"
-minimum_jetson: "Orin Nano"
-supported_inference_engines:
-  - engine: "llama.cpp"
-    type: "Container"
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin llama-server -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor llama-server -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M"
+minimum_jetson: "Orin NX"
+serving:
+  entries:
+    - engine: "llama.cpp"
+      type: "Container"
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+        - orin_nx_16
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin \
+          llama-server -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor \
+          llama-server -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
 ---
 
 Gemma 4 E4B is a lightweight Gemma 4 model that can be served locally on Jetson with `llama.cpp`. In Google's launch material, E4B is framed as the stronger edge-focused sibling to E2B, combining on-device efficiency with materially better coding, reasoning, and multimodal performance.
 
-- Local coding assistants on Orin Nano, Orin NX, or AGX Orin
+- Local coding assistants on Orin NX, AGX Orin, or Thor
 - Multimodal document and screen-understanding with optional voice input
 - Tool-using assistants that need better reasoning than E2B
 - A balanced default for edge AI demos or products that need better quality without moving to the larger models
