@@ -463,19 +463,10 @@ const servePanelEngineRows = sortedEngines.map((e) => ({
 
 		const modulesSupportedByEngine = cfg.modulesSupportedByEngine || {};
 
-		function moduleDisallowedForEngine(moduleId: string, engineName: string): boolean {
-			const allowed = modulesSupportedByEngine[engineName];
-			if (allowed == null) return false;
-			if (allowed.length === 0) return true;
-			return !allowed.includes(moduleId);
-		}
-
 		function applyModuleTabsEnabledState() {
 			moduleTabs.forEach((btn) => {
-				const id = btn.dataset.module || '';
 				const global = btn.dataset.moduleGlobalDisabled === '1';
-				const engOff = moduleDisallowedForEngine(id, activeEngine);
-				const dis = global || engOff;
+				const dis = global;
 				btn.disabled = dis;
 				if (dis) {
 					applyMatrixModuleTabDisabledVisual(btn);
@@ -596,12 +587,6 @@ const servePanelEngineRows = sortedEngines.map((e) => ({
 		function setActiveEngine(engineName: string) {
 			activeEngine = engineName;
 			writeInferenceBrowserPrefsPatch({ matrixEngineId: engineName });
-			applyModuleTabsEnabledState();
-			const curTab = Array.from(moduleTabs).find((b) => b.dataset.module === activeModule);
-			if (!curTab || curTab.disabled) {
-				const fb = Array.from(moduleTabs).find((b) => !b.disabled);
-				if (fb?.dataset.module) activeModule = fb.dataset.module;
-			}
 			setActiveModule(activeModule);
 
 			document.dispatchEvent(

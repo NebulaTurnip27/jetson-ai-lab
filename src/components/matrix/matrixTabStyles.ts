@@ -85,6 +85,7 @@ export const MATRIX_ENGINE_BTN_MODAL: readonly string[] = [
 	'px-3 sm:px-4 lg:px-0 lg:pl-2.5',
 	'border-b-[3px] pb-2 -mb-px lg:mb-0 lg:border-b-0 lg:!border-l-[3px] lg:py-2',
 	'border-b-transparent text-gray-500 hover:text-nvidia-black hover:border-b-gray-300 lg:hover:border-l-gray-300',
+	'disabled:opacity-35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-transparent disabled:hover:text-nvidia-gray-400 disabled:text-nvidia-gray-400 disabled:border-b-transparent disabled:lg:border-l-transparent',
 ];
 
 export const MATRIX_ENGINE_BTN_SERVE: readonly string[] = [

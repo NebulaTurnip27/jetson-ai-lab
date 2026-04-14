@@ -741,25 +741,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             syncRunModalMatrixEngineRail(modal, meta);
             return;
           }
-          var map = meta.modulesSupportedByEngine || {};
-          var ae = (modal.getAttribute('data-active-engine') || '').toLowerCase();
-          function allowedForEngine() {
-            if (Object.prototype.hasOwnProperty.call(map, ae)) return map[ae];
-            for (var k in map) {
-              if (Object.prototype.hasOwnProperty.call(map, k) && String(k).toLowerCase() === ae) return map[k];
-            }
-            return null;
-          }
-          var allowed = allowedForEngine();
           modal.querySelectorAll('[data-run-module-tab]').forEach(function (btn) {
-            var mid = btn.getAttribute('data-run-module-tab');
             var global = btn.getAttribute('data-run-module-global-disabled') === '1';
-            var engOff = false;
-            if (allowed != null && Array.isArray(allowed)) {
-              if (allowed.length === 0) engOff = true;
-              else engOff = allowed.indexOf(mid) === -1;
-            }
-            var dis = global || engOff;
+            var dis = global;
             btn.disabled = dis;
             if (dis) {
               applyMatrixModuleTabDisabledVisual(btn);
@@ -773,6 +757,47 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             var firstOk = modal.querySelector('[data-run-module-tab]:not(:disabled)');
             if (firstOk) {
               modal.setAttribute('data-active-module', firstOk.getAttribute('data-run-module-tab') || '');
+            }
+          }
+          var map = meta.modulesSupportedByEngine || {};
+          var activeModule = modal.getAttribute('data-active-module') || '';
+          modal.querySelectorAll('[data-run-engine-btn]').forEach(function (btn) {
+            var engineName = btn.getAttribute('data-run-engine-btn') || '';
+            var allowed = null;
+            if (Object.prototype.hasOwnProperty.call(map, engineName)) allowed = map[engineName];
+            else {
+              for (var k in map) {
+                if (Object.prototype.hasOwnProperty.call(map, k) && normalizeInferenceEngineKey(k) === normalizeInferenceEngineKey(engineName)) {
+                  allowed = map[k];
+                  break;
+                }
+              }
+            }
+            var dis = false;
+            if (allowed != null && Array.isArray(allowed)) {
+              if (allowed.length === 0) dis = true;
+              else dis = allowed.indexOf(activeModule) === -1;
+            }
+            var key = null;
+            var commands = meta.moduleCommandMatrix && meta.moduleCommandMatrix[activeModule];
+            if (commands) {
+              for (var ck in commands) {
+                if (Object.prototype.hasOwnProperty.call(commands, ck) && normalizeInferenceEngineKey(ck) === normalizeInferenceEngineKey(engineName)) {
+                  key = ck;
+                  break;
+                }
+              }
+            }
+            var hasCmd = !!(key && commands && commands[key] && String(commands[key]).trim());
+            btn.disabled = dis || !hasCmd;
+            btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
+          });
+          var ae = modal.getAttribute('data-active-engine');
+          var activeEngineBtn = ae ? findRunModalEngineButton(modal, ae) : null;
+          if (!activeEngineBtn || activeEngineBtn.disabled) {
+            var firstOkEngine = modal.querySelector('[data-run-engine-btn]:not(:disabled)');
+            if (firstOkEngine) {
+              modal.setAttribute('data-active-engine', firstOkEngine.getAttribute('data-run-engine-btn') || '');
             }
           }
           syncRunModalMatrixUi(modal, meta);
@@ -1031,7 +1056,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 writeInferenceBrowserPrefsPatch({ matrixModuleId: mid });
               }
               var metaM = JSON.parse(modalM.getAttribute('data-meta') || '{}');
-              syncRunModalMatrixUi(modalM, metaM);
+              updateRunModalModuleTabAvailability(modalM, metaM);
               updateVllmConfigVisibility(modalM);
               render(modalM);
             }
@@ -1040,6 +1065,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           var engMatrixBtn = e.target.closest('[data-run-engine-btn]');
           if (engMatrixBtn && engMatrixBtn.closest('[data-run-modal]')) {
+            if (engMatrixBtn.disabled) return;
             var modalE = engMatrixBtn.closest('[data-run-modal]');
             var eid = engMatrixBtn.getAttribute('data-run-engine-btn');
             if (eid) {

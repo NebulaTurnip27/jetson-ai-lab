@@ -88,7 +88,7 @@ export function syncMatrixEngineRailSelection(
 ): void {
 	const onBg = ENGINE_RAIL_ON_BG[variant];
 	for (const btn of buttons) {
-		const on = isSelected(btn);
+		const on = !(btn as HTMLButtonElement).disabled && isSelected(btn);
 		btn.setAttribute('aria-selected', on ? 'true' : 'false');
 		btn.classList.toggle('!border-b-nvidia-green', on);
 		btn.classList.toggle('lg:!border-l-nvidia-green', on);
