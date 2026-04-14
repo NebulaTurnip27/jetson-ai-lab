@@ -5,7 +5,7 @@ category: "Fundamentals"
 section: "Performance"
 order: 2
 tags: ["benchmarking", "vllm", "llm", "vlm", "performance", "throughput", "latency", "ttft", "jetson"]
-featured: true
+featured: false
 isNew: true
 ---
 
@@ -261,4 +261,3 @@ This is the classic trade-off between **overall capacity** and **individual user
 - [Introduction to GenAI](/tutorials/genai-on-jetson-llms-vlms) - Learn about Ollama and vLLM for different use cases
 - [Supported Models](/models) - Browse optimized models with benchmark data
 - [vLLM Documentation](https://docs.vllm.ai/en/v0.10.1/cli/bench/serve.html#options) - Explore more benchmark options
-

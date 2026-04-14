@@ -9,13 +9,40 @@ order: 1
 type: "Multimodal"
 vision_capable: true
 memory_requirements: "8GB RAM"
-precision: "Q8_0 GGUF"
+precision: "Q4_K_S GGUF"
 model_size: "5.0GB"
 hf_checkpoint: "ggml-org/gemma-4-E2B-it-GGUF"
 huggingface_url: "https://huggingface.co/google/gemma-4-E2B-it"
 minimum_jetson: "Orin Nano"
 serving:
   entries:
+    - engine: "vLLM"
+      type: "Container"
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+        - orin_nx_16
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/vllm:gemma4-jetson-orin \
+          vllm serve google/gemma-4-E2B-it \
+            --gpu-memory-utilization 0.75 \
+            --enable-auto-tool-choice \
+            --reasoning-parser gemma4 \
+            --tool-call-parser gemma4
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/vllm:gemma4-jetson-thor \
+          vllm serve google/gemma-4-E2B-it \
+            --gpu-memory-utilization 0.75 \
+            --enable-auto-tool-choice \
+            --reasoning-parser gemma4 \
+            --tool-call-parser gemma4
     - engine: "llama.cpp"
       type: "Container"
       modules_supported:
@@ -28,14 +55,14 @@ serving:
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin \
-          llama-server -hf ggml-org/gemma-4-E2B-it-GGUF:Q8_0
+          ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin \
+          llama-server -hf unsloth/gemma-4-E2B-it-GGUF:Q4_K_S
       serve_command_thor: |-
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor \
-          llama-server -hf ggml-org/gemma-4-E2B-it-GGUF:Q8_0
+          ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor \
+          llama-server -hf unsloth/gemma-4-E2B-it-GGUF:Q4_K_S
 ---
 
 Gemma 4 E2B is the smallest variant in the Gemma 4 family. Google positions E2B as an edge-first model for low-latency, low-memory deployments where efficiency matters more than absolute model size.
@@ -58,7 +85,7 @@ Gemma 4 E2B is the smallest variant in the Gemma 4 family. Google positions E2B 
 
 ## Inference Engine
 
-This model is configured to run on Jetson with `llama.cpp`.
+This model is configured to run on Jetson with `vLLM` and `llama.cpp`.
 
 ## Official Highlights
 

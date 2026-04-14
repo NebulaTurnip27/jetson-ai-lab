@@ -222,6 +222,20 @@
     },
     {
       "family": "Gemma",
+      "name": "Gemma 4 E2B",
+      "releaseDate": "2026-04-02",
+      "capabilities": { "language": true, "vision": true, "audio": true, "vla": false },
+      "quantization": "Q8_0",
+      "framework": "llama.cpp",
+      "isl": 2048,
+      "osl": 128,
+      "performance": {
+        "concurrency1": { "t5000": null, "t4000": null, "agx_orin_64gb": 35, "orin_nx_16gb": null, "orin_nano_8gb": null },
+        "concurrency8": { "t5000": null, "t4000": null, "agx_orin_64gb": null, "orin_nx_16gb": null, "orin_nano_8gb": null }
+      }
+    },
+    {
+      "family": "Gemma",
       "name": "Gemma 3 1B",
       "releaseDate": "2025-03-12",
       "capabilities": { "language": true, "vision": false, "audio": false, "vla": false },
@@ -260,6 +274,34 @@
       "performance": {
         "concurrency1": { "t5000": 26, "t4000": 22, "agx_orin_64gb": 14, "orin_nx_16gb": 6, "orin_nano_8gb": null },
         "concurrency8": { "t5000": 150, "t4000": 118, "agx_orin_64gb": 40, "orin_nx_16gb": 9, "orin_nano_8gb": null }
+      }
+    },
+    {
+      "family": "Gemma",
+      "name": "Gemma 4 26B-A4B",
+      "releaseDate": "2026-04-02",
+      "capabilities": { "language": true, "vision": true, "audio": false, "vla": false },
+      "quantization": "AWQ-4bit / NVFP4",
+      "framework": "VLLM",
+      "isl": 2048,
+      "osl": 128,
+      "performance": {
+        "concurrency1": { "t5000": 50, "t4000": null, "agx_orin_64gb": 32, "orin_nx_16gb": null, "orin_nano_8gb": null },
+        "concurrency8": { "t5000": 180, "t4000": null, "agx_orin_64gb": 110, "orin_nx_16gb": null, "orin_nano_8gb": null }
+      }
+    },
+    {
+      "family": "Gemma",
+      "name": "Gemma 4 31B",
+      "releaseDate": "2026-04-02",
+      "capabilities": { "language": true, "vision": true, "audio": false, "vla": false },
+      "quantization": "AWQ-4bit / NVFP4",
+      "framework": "VLLM",
+      "isl": 2048,
+      "osl": 128,
+      "performance": {
+        "concurrency1": { "t5000": 7, "t4000": null, "agx_orin_64gb": 5, "orin_nx_16gb": null, "orin_nano_8gb": null },
+        "concurrency8": { "t5000": 43, "t4000": null, "agx_orin_64gb": 15, "orin_nx_16gb": null, "orin_nano_8gb": null }
       }
     },
     {

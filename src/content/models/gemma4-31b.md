@@ -16,6 +16,32 @@ huggingface_url: "https://huggingface.co/google/gemma-4-31B-it"
 minimum_jetson: "AGX Orin"
 serving:
   entries:
+    - engine: "vLLM"
+      type: "Container"
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/vllm:gemma4-jetson-orin \
+          vllm serve cyankiwi/gemma-4-31B-it-AWQ-4bit \
+            --gpu-memory-utilization 0.75 \
+            --enable-auto-tool-choice \
+            --reasoning-parser gemma4 \
+            --tool-call-parser gemma4
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/vllm:gemma4-jetson-thor \
+          vllm serve nvidia/Gemma-4-31B-IT-NVFP4 \
+            --gpu-memory-utilization 0.75 \
+            --enable-auto-tool-choice \
+            --reasoning-parser gemma4 \
+            --tool-call-parser gemma4
     - engine: "llama.cpp"
       type: "Container"
       modules_supported:
@@ -26,13 +52,13 @@ serving:
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin \
+          ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin \
           llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M
       serve_command_thor: |-
         sudo docker run -it --rm --pull always \
           --runtime=nvidia --network host \
           -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor \
+          ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor \
           llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M
 ---
 
@@ -56,7 +82,7 @@ Gemma 4 31B is the largest model in the current Gemma 4 set here, and it can be 
 
 ## Inference Engine
 
-This model is configured to run on Jetson with `llama.cpp`.
+This model is configured to run on Jetson with `vLLM` and `llama.cpp`.
 
 ## Official Highlights
 

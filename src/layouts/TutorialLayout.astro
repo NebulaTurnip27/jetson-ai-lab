@@ -4,22 +4,47 @@ import { getCollection } from 'astro:content';
 
 export interface Props {
   tutorialId: string;
+  frontmatter?: {
+    tutorialId?: string;
+  };
 }
 
-const { tutorialId } = Astro.props;
+const { tutorialId: directTutorialId, frontmatter } = Astro.props;
+const tutorialId = directTutorialId ?? frontmatter?.tutorialId;
 
 const allTutorials = await getCollection('tutorials');
-const tutorial = allTutorials.find(t => t.slug === tutorialId || t.slug.endsWith('/' + tutorialId));
+const tutorial = allTutorials.find((t) => {
+	return (
+		t.slug === tutorialId ||
+		t.slug.endsWith('/' + tutorialId) ||
+		t.id === tutorialId ||
+		t.id.endsWith('/' + tutorialId)
+	);
+});
 
 if (!tutorial) {
-  return Astro.redirect('/404');
+	Astro.response.status = 404;
 }
 
-const { Content, headings } = await tutorial.render();
+const rendered = tutorial ? await tutorial.render() : null;
+const Content = rendered?.Content;
+const headings = rendered?.headings ?? [];
 ---
 
-<Layout title={tutorial.data.title} description={tutorial.data.description}>
+<Layout title={tutorial?.data.title ?? 'Tutorial Not Found'} description={tutorial?.data.description ?? 'The requested tutorial could not be found.'}>
 	<div class="bg-white min-h-screen">
+		{!tutorial ? (
+			<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+				<h1 class="text-4xl font-bold text-slate-900 mb-4">Tutorial not found</h1>
+				<p class="text-lg text-slate-600 mb-8">
+					The tutorial you requested could not be found.
+				</p>
+				<a href="/tutorials" class="inline-flex items-center gap-2 px-4 py-2.5 bg-nvidia-green hover:bg-[#9aeb00] text-black font-semibold rounded-lg transition-colors">
+					Back to Tutorials
+				</a>
+			</div>
+		) : (
+		<>
 		<!-- Hero Section -->
 		<div class="bg-slate-900 text-white border-b border-slate-800 relative">
 			{tutorial.data.hero_image && (
@@ -124,6 +149,8 @@ const { Content, headings } = await tutorial.render();
 				</main>
 			</div>
 		</div>
+		</>
+		)}
 	</div>
 </Layout>
 

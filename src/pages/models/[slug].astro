@@ -21,6 +21,7 @@ const { data } = entry;
 
 // Generate HuggingFace URL from hf_checkpoint if huggingface_url not provided
 const huggingfaceUrl = data.huggingface_url || (data.hf_checkpoint ? `https://huggingface.co/${data.hf_checkpoint}` : null);
+const isGemma4Family = data.family === 'Google Gemma4';
 
 const sortedEngines = sortEnginesForUi(getSupportedInferenceEngines(data));
 
@@ -165,6 +166,15 @@ const inferenceNeedsHfToken = sortedEngines.some((e) => {
           </div>
         )}
       </div>
+      {isGemma4Family && (
+        <p class="mb-6 rounded-lg border border-nvidia-gray-200 bg-nvidia-gray-50 px-4 py-3 text-sm text-nvidia-gray-700">
+          If you want to learn more about the Gemma 4 family and the different ways to run it on Jetson, check out the{' '}
+          <a href="/tutorials/gemma4-on-jetson" class="font-semibold text-nvidia-green hover:underline">
+            Gemma 4 on Jetson tutorial
+          </a>
+          .
+        </p>
+      )}
       <div class="prose prose-lg text-nvidia-gray-600 max-w-none">
         <Content />
       </div>
