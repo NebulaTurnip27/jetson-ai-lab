@@ -14,11 +14,26 @@ model_size: "18.7GB"
 hf_checkpoint: "ggml-org/gemma-4-31B-it-GGUF"
 huggingface_url: "https://huggingface.co/google/gemma-4-31B-it"
 minimum_jetson: "AGX Orin"
-supported_inference_engines:
-  - engine: "llama.cpp"
-    type: "Container"
-    run_command_orin: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M"
-    run_command_thor: "sudo docker run -it --rm --pull always --runtime=nvidia --network host -v $HOME/.cache/huggingface:/root/.cache/huggingface ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M"
+serving:
+  entries:
+    - engine: "llama.cpp"
+      type: "Container"
+      modules_supported:
+        - thor_t5000
+        - thor_t4000
+        - orin_agx_64
+      serve_command_orin: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-orin \
+          llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M
+      serve_command_thor: |-
+        sudo docker run -it --rm --pull always \
+          --runtime=nvidia --network host \
+          -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+          ghcr.io/nvidia-ai-iot/llama_cpp:gemma4-jetson-thor \
+          llama-server -hf ggml-org/gemma-4-31B-it-GGUF:Q4_K_M
 ---
 
 Gemma 4 31B is the largest model in the current Gemma 4 set here, and it can be served on Jetson with `llama.cpp`. In Google's launch post, 31B is the flagship dense model in the family, aimed at the best possible raw quality for local reasoning, coding, and agentic workflows.
