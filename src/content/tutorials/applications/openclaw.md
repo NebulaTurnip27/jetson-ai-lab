@@ -7,6 +7,11 @@ order: 2
 tags: ["openclaw", "ollama", "vllm", "qwen3.5", "nemotron", "jetson-orin-nano", "jetson-orin", "jetson-thor", "agent", "local-llm", "tool-calling", "whatsapp"]
 isNew: true
 hideMigrationNotice: true
+authors:
+  - name: "Khalil BenKhaled"
+    github: "NebulaTurnip27"
+  - name: "Asier Arranz"
+    github: "asierarranz"
 ---
 
 OpenClaw also works on Jetson devices. You can run it on a **Jetson AGX Orin** or **AGX Thor**, but even if you have a **Jetson Orin Nano (8GB)**, you can still run it locally with the right setup.

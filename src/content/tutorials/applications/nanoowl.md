@@ -5,6 +5,9 @@ category: "Applications"
 section: "Vision Transformers"
 order: 1
 tags: ["nanoowl", "owl-vit", "vision", "tensorrt", "object-detection", "jetson", "real-time"]
+authors:
+  - name: "Chitoku YATO"
+    github: "tokk-nv"
 ---
 
 Let's run [NanoOWL](https://github.com/NVIDIA-AI-IOT/nanoowl), [OWL-ViT](https://huggingface.co/docs/transformers/model_doc/owlvit) optimized to run real-time on Jetson with [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt).

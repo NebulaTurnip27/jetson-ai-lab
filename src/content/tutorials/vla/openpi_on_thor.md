@@ -6,6 +6,9 @@ section: "Vision-Language-Action Models"
 order: 1
 tags: ["vla", "openpi", "pi0.5", "robotics", "jetson-thor", "tensorrt", "nvfp4", "fp8", "inference", "vision-language-action"]
 isNew: true
+authors:
+  - name: "Aditya Sahu"
+    github: "adsahu-nv"
 ---
 
 Deploy [Physical Intelligence's](https://www.physicalintelligence.company/) OpenPi **π₀.₅ Vision-Language-Action (VLA)** model on **NVIDIA Jetson AGX Thor** with TensorRT NVFP4 quantization for low-latency end-to-end inference.

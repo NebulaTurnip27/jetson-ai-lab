@@ -6,6 +6,9 @@ section: "Hands-on Labs"
 order: 1
 tags: ["Jetson Thor", "vLLM", "Quantization", "FP8", "FP4", "Speculative Decoding", "LLM Serving", "GTC"]
 featured: false
+authors:
+  - name: "Chitoku YATO"
+    github: "tokk-nv"
 ---
 
 # From AI Exploration to Production Deployment

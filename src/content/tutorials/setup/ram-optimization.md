@@ -5,6 +5,9 @@ category: "Setup"
 section: "Environment Setup"
 order: 4
 tags: ["setup", "ram", "memory", "optimization", "swap", "jetson-orin-nano", "jetson"]
+authors:
+  - name: "Chitoku YATO"
+    github: "tokk-nv"
 ---
 
 Running large language models requires significant RAM. On devices like the **Jetson Orin Nano** with only 8 GB of RAM, it is crucial to free as much memory as possible for model inference.

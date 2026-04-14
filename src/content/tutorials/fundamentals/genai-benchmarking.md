@@ -7,6 +7,9 @@ order: 2
 tags: ["benchmarking", "vllm", "llm", "vlm", "performance", "throughput", "latency", "ttft", "jetson"]
 featured: false
 isNew: true
+authors:
+  - name: "Khalil BenKhaled"
+    github: "NebulaTurnip27"
 ---
 
 In this tutorial, we will walk you through benchmarking Large Language Models (LLMs) and Vision Language Models (VLMs) on your Jetson. For this guide, we'll use vLLM as our inference engine of choice due to its high throughput and efficiency. We'll focus on measuring the model's speed and performance, which are critical to give you an idea of how your system will react under different loads.

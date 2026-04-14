@@ -7,6 +7,9 @@ order: 1
 tags: ["fundamentals", "genai", "jetson", "llm", "vlm", "ollama", "vllm", "speculative-decoding", "eagle3"]
 model: "ollama / vllm"
 featured: true
+authors:
+  - name: "Khalil BenKhaled"
+    github: "NebulaTurnip27"
 ---
 
 Running Generative AI on Jetson usually comes down to two workflows:

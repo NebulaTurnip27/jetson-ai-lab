@@ -5,6 +5,8 @@ category: "Applications"
 section: "AI Microservices"
 order: 2
 tags: ["jps", "jetson", "microservices", "vlm", "deepstream", "video-analytics", "edge-ai", "nanoowl"]
+authors:
+  - name: "sochoa"
 ---
 
 Jetson Platform Services (JPS) provide a platform to simplify development, deployment and management of Edge AI applications on NVIDIA Jetson. JPS is a modular & extensible architecture for developers to distill large complex applications into smaller modular microservices with APIs to integrate into other apps & services.
