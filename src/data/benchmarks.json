@@ -236,48 +236,6 @@
     },
     {
       "family": "Gemma",
-      "name": "Gemma 3 1B",
-      "releaseDate": "2025-03-12",
-      "capabilities": { "language": true, "vision": false, "audio": false, "vla": false },
-      "quantization": "w4a16",
-      "framework": "VLLM",
-      "isl": 2048,
-      "osl": 128,
-      "performance": {
-        "concurrency1": { "t5000": 170, "t4000": 126, "agx_orin_64gb": 110, "orin_nx_16gb": 56, "orin_nano_8gb": null },
-        "concurrency8": { "t5000": 1100, "t4000": 761, "agx_orin_64gb": 670, "orin_nx_16gb": 300, "orin_nano_8gb": null }
-      }
-    },
-    {
-      "family": "Gemma",
-      "name": "Gemma 3 4B",
-      "releaseDate": "2025-03-12",
-      "capabilities": { "language": true, "vision": true, "audio": false, "vla": false },
-      "quantization": "w4a16",
-      "framework": "VLLM",
-      "isl": 2048,
-      "osl": 128,
-      "performance": {
-        "concurrency1": { "t5000": 67, "t4000": 48, "agx_orin_64gb": 42, "orin_nx_16gb": 13, "orin_nano_8gb": null },
-        "concurrency8": { "t5000": 348, "t4000": 265, "agx_orin_64gb": 231, "orin_nx_16gb": 40, "orin_nano_8gb": null }
-      }
-    },
-    {
-      "family": "Gemma",
-      "name": "Gemma 3 12B",
-      "releaseDate": "2025-03-12",
-      "capabilities": { "language": true, "vision": true, "audio": false, "vla": false },
-      "quantization": "NVFP4",
-      "framework": "VLLM",
-      "isl": 2048,
-      "osl": 128,
-      "performance": {
-        "concurrency1": { "t5000": 26, "t4000": 22, "agx_orin_64gb": 14, "orin_nx_16gb": 6, "orin_nano_8gb": null },
-        "concurrency8": { "t5000": 150, "t4000": 118, "agx_orin_64gb": 40, "orin_nx_16gb": 9, "orin_nano_8gb": null }
-      }
-    },
-    {
-      "family": "Gemma",
       "name": "Gemma 4 26B-A4B",
       "releaseDate": "2026-04-02",
       "capabilities": { "language": true, "vision": true, "audio": false, "vla": false },

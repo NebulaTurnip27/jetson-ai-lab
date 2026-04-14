@@ -39,7 +39,7 @@ const { products, models, notes } = benchmarks;
 
   <!-- Chart -->
   <div id="dot-chart-wrap" class="relative rounded-xl border border-nvidia-gray-100 overflow-x-auto bg-white">
-    <div id="dot-chart" class="min-w-[700px]"></div>
+    <div id="dot-chart" class="min-w-[1080px]"></div>
     <div id="chart-tooltip" class="hidden absolute pointer-events-none bg-nvidia-black text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-10" style="transform: translate(12px, -50%)"></div>
   </div>
 
@@ -133,8 +133,8 @@ const { products, models, notes } = benchmarks;
     const minDate = Math.min(...allDates);
     const maxDate = Math.max(...allDates);
     const dateSpan = maxDate - minDate || 1;
-    const datePadLeft = dateSpan * 0.06;
-    const datePadRight = dateSpan * 0.18;
+    const datePadLeft = dateSpan * 0.03;
+    const datePadRight = dateSpan * 0.08;
     const xMin = minDate - datePadLeft;
     const xMax = maxDate + datePadRight;
 
@@ -143,7 +143,7 @@ const { products, models, notes } = benchmarks;
 
     // Layout
     const ml = 62, mr = 40, mt = 20, mb = 50;
-    const w = 960;
+    const w = 1360;
     const chartH = 420;
     const h = mt + chartH + mb;
     const cw = w - ml - mr;
