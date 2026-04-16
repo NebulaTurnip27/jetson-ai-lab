@@ -24,6 +24,14 @@ const tutorials = defineCollection({
 		featured: z.boolean().optional(),
 		isNew: z.boolean().optional(), // Mark as new tutorial
 		hero_image: z.string().optional(), // Optional background image for hero section
+		authors: z
+			.array(
+				z.object({
+					name: z.string(),
+					github: z.string().optional(),
+				})
+			)
+			.optional(),
 	}),
 });
 

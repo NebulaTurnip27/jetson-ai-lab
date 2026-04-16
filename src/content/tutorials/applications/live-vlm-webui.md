@@ -7,6 +7,9 @@ order: 1
 tags: ["vlm", "vision", "camera", "live-streaming", "webrtc", "ollama", "gemma", "qwen", "llama-vision", "multimodal"]
 featured: true
 isNew: true
+authors:
+  - name: "Chitoku YATO"
+    github: "tokk-nv"
 ---
 
 ![Live VLM WebUI](https://github.com/NVIDIA-AI-IOT/live-vlm-webui/raw/main/docs/images/chrome_app-running_light-theme.jpg)

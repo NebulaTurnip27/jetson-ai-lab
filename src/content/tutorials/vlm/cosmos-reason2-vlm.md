@@ -7,6 +7,9 @@ order: 2
 tags: ["vlm", "vision", "cosmos", "cosmos-reason2", "vllm", "fp8", "jetson-orin", "jetson-thor", "ngc", "live-vlm-webui", "multimodal", "reasoning", "2b", "8b"]
 model: "vllm"
 isNew: true
+authors:
+  - name: "Johnny Nuñez"
+    github: "johnnynunez"
 ---
 
 ![Cosmos Reason2 on Jetson](/images/tutorials/cosmos-reason2-8b.jpg)

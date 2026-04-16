@@ -5,6 +5,9 @@ category: "Fundamentals"
 section: "Inference Engines"
 order: 3
 tags: ["ollama", "llm", "jetson", "docker", "open-webui", "inference", "text-generation"]
+authors:
+  - name: "Dustin Franklin"
+    github: "dusty-nv"
 ---
 
 [Ollama](https://ollama.com) is a popular open-source tool that allows users to easily run large language models (LLMs) locally on their own computer, serving as an accessible entry point to LLMs for many.
